@@ -156,6 +156,8 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"url": "https://api.github.com/repos/bryancross/testrepo/git/blobs/e920e4bdbaf733383acdbb236a867e8ec3877b6f"` <br> 
 `}` <br> 
 `],` <br> 
+`"errors":[]`
+`"errorMessage:""`
 `"status": "Complete",` <br> 
 `"tempDir": "./job/fba65bc7c2c07f146ef81207748cba179a950fce",` <br> 
 `"endTime": "2017-01-08T12:40:42.330-06:00",` <br> 
