@@ -30,9 +30,7 @@ match your environment.  The only edits you'll need to make to run are in the `j
   `,"deleteTempDir":true` <br>
   `,"userAgent":"key2pdf"` <br>
   `,"listenOnPort":3000` <br>
-  `,"pathPrefix": ""` <br>
-      `,"callback": ""` <br>
-      `,"filePath": ""` <br>
+     `,"callback": ""` <br>
       `,"debug":false` <br>
 `}`
 
@@ -49,27 +47,18 @@ match your environment.  The only edits you'll need to make to run are in the `j
 | `deleteTempDir` | If true, delete the temporary working directory on exit.  If false, don't.  Useful for seeing what's actually coming out of the repo or cloudconvert|
 | `userAgent` | Value for the `user-agent` header sent to GitHub when the node-github API is initialized | 
 | `listenOnPort` | Port on which the server will listen | 
+| `callback` | endpoint URL to be called when a conversion job completes | 
+| `debug` | If true, create the node-github API instance with debug=true.  Otherwise false. |
 
 
 ## Use
-
-#### Run As Script
-
-`./script/run.sh <optional url>`
-
-If no `url` argument is provided, will traverse the entire repository specified by `targetRepo` and convert
-all keynote files found
-
-If `url` is provided, will attempt to find the file at the specified path and convert only it.
-
-#### Run As Server
 
 run `script/server.js`
 
 The following config parameters are overwritten by values derived from the URL when key2pdf runs in server mode:
 
  - `targetHost`
- - `user`
+ - `owner`
  - `targetRepo`
  - `targetBranch`
 
