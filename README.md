@@ -15,7 +15,8 @@ Clone the repository, then run
 `script/bootstrap.sh`
 
 ## Configuration
-The bootstrap script creates an empty config.json file in the `/config` directory.  Edit it and add the following keys with values appropriate to your environment.
+The bootstrap script creates the /job and /log directories.  You'll need to copy `job-template-exmample.json` to `job-template.json` and edit the values to 
+match your environment.  The only edits you'll need to make to run are in the `job.config` element:
 
 `{`<br>
    `"GitHubPAT":"<yourPAT>"` <br>
@@ -29,6 +30,10 @@ The bootstrap script creates an empty config.json file in the `/config` director
   `,"deleteTempDir":true` <br>
   `,"userAgent":"key2pdf"` <br>
   `,"listenOnPort":3000` <br>
+  `,"pathPrefix": ""` <br>
+      `,"callback": ""` <br>
+      `,"filePath": ""` <br>
+      `,"debug":false` <br>
 `}`
 
 | Parameter | Notes |
