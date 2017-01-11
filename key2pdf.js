@@ -293,6 +293,7 @@ function convertFiles(job) {
 
                     }
                 }
+            }
                 if (tree.length === 0) {
                     log("No file found in repository for path: " + job.filePath, job, "Failed");
                     job.errorMessage = "No file found in repository for path: " + job.filePath, job, "Failed";
@@ -301,7 +302,7 @@ function convertFiles(job) {
                 }
                 //go get the files
                 getFiles(tree, job);
-            }
+
         })
         //This catch block is never called, apparently, in the case of a failed GitHub API call, e.g.,
         //bad credentials
