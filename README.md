@@ -124,6 +124,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"targetRepo": "testrepo",` <br> 
 `"targetBranch": "master",` <br> 
 `"targetHost": "api.github.com",` <br> 
+`"owner": "bryancross",` <br>
 `"user": "bryancross",` <br> 
 `"authType": "oauth",` <br> 
 `"cloudConvertAPIToken": "O_unX3l0OehzUhKfNOz_fczDugrne7ssX-dlD971NYIaLAD0MIYRxIveRf9KN2HWqvmSt2QwoYWt0ycf5auc7Q",` <br> 
@@ -131,6 +132,8 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"deleteTempDir": false,` <br> 
 `"userAgent": "key2pdf",` <br> 
 `"listenOnPort": 3000,` <br> 
+`"callback": "http://localhost:3001/status",` <br>
+`"debug": false,` <br>
 `"filePath": "foo/deck2.key",` <br> 
 `"pathPrefix": ""` <br> 
 `},` <br> 
