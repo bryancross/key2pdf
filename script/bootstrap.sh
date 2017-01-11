@@ -4,4 +4,5 @@ echo "creating log directory"
 mkdir -p log
 echo "Creating jobs directory"
 mkdir -p jobs
+cp config/job-template-example.json config/job-temlplate.json
 echo "Remember to edit config/job-template.json with correct default values"
