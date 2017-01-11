@@ -83,6 +83,8 @@ function updateConfigFromParams(request, job) {
         job.config.targetBranch = urlComps[6];
     }
 
+    job.config.filePath = "";
+
     for (var i = 7; i < urlComps.length; i++) {
         job.config.filePath = (job.config.filePath === "" ? job.config.filePath + urlComps[i] : job.config.filePath + "/" + urlComps[i]);
     }

@@ -15,7 +15,8 @@ Clone the repository, then run
 `script/bootstrap.sh`
 
 ## Configuration
-The bootstrap script creates an empty config.json file in the `/config` directory.  Edit it and add the following keys with values appropriate to your environment.
+The bootstrap script creates the /job and /log directories.  You'll need to copy `job-template-exmample.json` to `job-template.json` and edit the values to 
+match your environment.  The only edits you'll need to make to run are in the `job.config` element:
 
 `{`<br>
    `"GitHubPAT":"<yourPAT>"` <br>
@@ -29,6 +30,8 @@ The bootstrap script creates an empty config.json file in the `/config` director
   `,"deleteTempDir":true` <br>
   `,"userAgent":"key2pdf"` <br>
   `,"listenOnPort":3000` <br>
+     `,"callback": ""` <br>
+      `,"debug":false` <br>
 `}`
 
 | Parameter | Notes |
@@ -44,27 +47,18 @@ The bootstrap script creates an empty config.json file in the `/config` director
 | `deleteTempDir` | If true, delete the temporary working directory on exit.  If false, don't.  Useful for seeing what's actually coming out of the repo or cloudconvert|
 | `userAgent` | Value for the `user-agent` header sent to GitHub when the node-github API is initialized | 
 | `listenOnPort` | Port on which the server will listen | 
+| `callback` | endpoint URL to be called when a conversion job completes | 
+| `debug` | If true, create the node-github API instance with debug=true.  Otherwise false. |
 
 
 ## Use
-
-#### Run As Script
-
-`./script/run.sh <optional url>`
-
-If no `url` argument is provided, will traverse the entire repository specified by `targetRepo` and convert
-all keynote files found
-
-If `url` is provided, will attempt to find the file at the specified path and convert only it.
-
-#### Run As Server
 
 run `script/server.js`
 
 The following config parameters are overwritten by values derived from the URL when key2pdf runs in server mode:
 
  - `targetHost`
- - `user`
+ - `owner`
  - `targetRepo`
  - `targetBranch`
 
@@ -130,6 +124,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"targetRepo": "testrepo",` <br> 
 `"targetBranch": "master",` <br> 
 `"targetHost": "api.github.com",` <br> 
+`"owner": "bryancross",` <br>
 `"user": "bryancross",` <br> 
 `"authType": "oauth",` <br> 
 `"cloudConvertAPIToken": "O_unX3l0OehzUhKfNOz_fczDugrne7ssX-dlD971NYIaLAD0MIYRxIveRf9KN2HWqvmSt2QwoYWt0ycf5auc7Q",` <br> 
@@ -137,6 +132,8 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"deleteTempDir": false,` <br> 
 `"userAgent": "key2pdf",` <br> 
 `"listenOnPort": 3000,` <br> 
+`"callback": "http://localhost:3001/status",` <br>
+`"debug": false,` <br>
 `"filePath": "foo/deck2.key",` <br> 
 `"pathPrefix": ""` <br> 
 `},` <br> 
@@ -169,7 +166,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 The job object is written out to the `/log` directory.  The filename is the JobID.
  
 ##Temporary Directories
-Job data are stored in a directory in the /job directory.  The directory name is the JobID.  If `config.deleteTempDir` = `true`, 
+Job data are stored in a directory in the `/job` directory.  The directory name is the JobID.  If `config.deleteTempDir` = `true`, 
  this directory will be deleted when the conversion job is complete.
 
 
