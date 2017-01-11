@@ -102,11 +102,18 @@ function updateConfigFromParams(request, job) {
 //return the job log data.
 dispatcher.onPost('/status', function (req, res) {
     var jobID = JSON.parse(req.body).jobID;
+
     ///Search the array of jobs in memory
     for (var i = 0; i < global.jobs.length; i++) {
         if (global.jobs[i].jobID === jobID) {
+
+            //Copy the job JSON
+            var status = JSON.parse(JSON.stringify(global.jobs[i]));
+
+            //Delete the github object, since it is 1000s of lines long
+            status.delete("github");
             res.writeHead(200, {'Content-Type': 'text/plain'});
-            res.end(JSON.stringify(global.jobs[i]));
+            res.end(JSON.stringify(status));
             return;
         }
     }
@@ -560,7 +567,7 @@ function cleanup(job)
     }
 
     job.endTime = format(new Date());
-    job.duration = differenceInMilliseconds(parse(job.endTime), parse(job.StartTime)) / 1000;
+    job.duration = differenceInMilliseconds(parse(job.endTime), parse(job.startTime)) / 1000;
 
     //Clean up the log by deleting redundant/unnecessary nodes from the job object
     delete job.keynoteFiles;
