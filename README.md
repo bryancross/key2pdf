@@ -55,7 +55,7 @@ match your environment.  The only edits you'll need to make to run are in the `j
 
 run `script/server.js`
 
-The following config parameters are overwritten by values derived from the URL when key2pdf runs in server mode:
+The following config parameters are overwritten by values derived from the URL:
 
  - `targetHost`
  - `owner`
