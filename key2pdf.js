@@ -340,6 +340,10 @@ function getFiles(tree, job) {
 
 function downloadKeynote(keynote, job) {
     var path = job.tempDir + "/" + keynote.path.substr(keynote.path.lastIndexOf("/") + 1);
+
+    //Remove illegal characters from path
+    path.replace(" ","_");
+
     log("Beginning content download for: " + keynote.path + " (" + keynote.sha + ")", job);
     //Use the gitdata API to download the blob to our temporary directory
     //Async call, so use promises to pipe result to the convertKeynote function
