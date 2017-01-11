@@ -160,7 +160,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"type": "blob",` <br> 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"mode": "100644",` <br> 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"sha": "e920e4bdbaf733383acdbb236a867e8ec3877b6f",` <br> 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"url": &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"https://api.github.com/repos/bryancross/testrepo/git/blobs/e920e4bdbaf733383acdbb236a867e8ec3877b6f"` <br> 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"url":"https://api.github.com/repos/bryancross/testrepo/git/blobs/e920e4bdbaf733383acdbb236a867e8ec3877b6f"` <br> 
 &nbsp;&nbsp;&nbsp;`}` <br> 
 &nbsp;&nbsp;&nbsp;`],` <br> 
 &nbsp;&nbsp;&nbsp;`"errors":[]  //Array of any error messages encountered during the conversion run` <br>
