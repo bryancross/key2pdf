@@ -48,7 +48,7 @@ match your environment.  The only edits you'll need to make to run are in the `j
 | `userAgent` | Value for the `user-agent` header sent to GitHub when the node-github API is initialized | 
 | `listenOnPort` | Port on which the server will listen | 
 | `callback` | endpoint URL to be called when a conversion job completes | 
-| `debug` | If true, create the node-github API instance with debug=true.  Otherwise false. |
+| `debug` | If true, create the node-github API instance with `debug=true`.  Otherwise false. |
 
 
 ## Use
@@ -83,6 +83,13 @@ or to an entire repository, in which case all keynote files in the repository wi
   
 The server expects URLs to be constructed as they would be if you copied the URL from your browser while viewing a file or repository.
 
+You can replace any value in the `job.config` by passing it in the HTTP request, e.g.,
+
+`var options = "{GitHubPAT:<somepat>"` <br>
+`var req = http.request(options, callback);` <br>
+
+
+ 
 ##### Returns
 `convert` will return JSON containing a status message and an ID for the conversion job.  You can use this ID to retrieve the status
 of your job.
@@ -104,7 +111,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `{` <br> 
 `"jobID": "fba65bc7c2c07f146ef81207748cba179a950fce",` <br> 
 `"StartTime": "2017-01-08T12:40:32.533-06:00",` <br> 
-`"msgs": [` <br> 
+`"msgs": [  //Array of messages emitted by the logger during the conversion run` <br>  
 `{` <br> 
 `"time": "2017-01-08T12:40:32.534-06:00",` <br> 
 `"msg": "Path: foo/deck1.key"` <br> 
@@ -119,7 +126,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `},` <br> 
 `<<etc>>` <br> 
 `],` <br> 
-`"config": {` <br> 
+`"config": { //The config, as modified by any URLs or parameters passed in` <br> 
 `"GitHubPAT": "<your properly scoped GitHub PAT>",` <br> 
 `"targetRepo": "testrepo",` <br> 
 `"targetBranch": "master",` <br> 
@@ -134,10 +141,10 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"listenOnPort": 3000,` <br> 
 `"callback": "http://localhost:3001/status",` <br>
 `"debug": false,` <br>
-`"filePath": "foo/deck2.key",` <br> 
+`"filePath": "foo/deck2.key", // The path in the repository converted by this run` <br> 
 `"pathPrefix": ""` <br> 
 `},` <br> 
-`"files": [` <br> 
+`"files": [ // Files identified and sent for conversion` <br> 
 `{` <br> 
 `"path": "foo/deck1.key",` <br> 
 `"mode": "100644",` <br> 
@@ -147,7 +154,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"url": "https://api.github.com/repos/bryancross/testrepo/git/blobs/eb1810b784c492d814020a8c0b84e7634e44c4a7"` <br> 
 `}` <br> 
 `],` <br> 
-`"PDFs": [` <br> 
+`"PDFs": [ // Resulting PDFs committed to the repo` <br> 
 `{` <br> 
 `"path": "foo/deck1.key.pdf",` <br> 
 `"type": "blob",` <br> 
@@ -156,6 +163,8 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 `"url": "https://api.github.com/repos/bryancross/testrepo/git/blobs/e920e4bdbaf733383acdbb236a867e8ec3877b6f"` <br> 
 `}` <br> 
 `],` <br> 
+`"errors":[]  //Array of any error messages encountered during the conversion run` <br>
+`"errorMessage:"" //The last error message received` <br> 
 `"status": "Complete",` <br> 
 `"tempDir": "./job/fba65bc7c2c07f146ef81207748cba179a950fce",` <br> 
 `"endTime": "2017-01-08T12:40:42.330-06:00",` <br> 
