@@ -1,14 +1,14 @@
 # key2pdf
 Scripts and tools for transforming keynote files to PDF
 
-key2pdf can run as a script or as a server.  As a script, key2pdf either:
+key2pdf runs as a server listening for POST requests on the `/convert` endpoint.  Calls to this endpoint include a `url` parameter.  Depending on the format of that URL, `key2pdf` will either:
 
- - Traverses a specified repository, finding all keynote files, converting them to PDF, and then uploading the resulting PDFs back into the repository
- - Finds and converts a single keynote file
+ - Traverse a specified repository, finding all keynote files, converting them to PDF, and then uploading the resulting PDFs back into the repository
+ - Find and convert a single keynote file
 
 Converted PDFs are committed to GitHub in the same path as their source keynote files.
 
-Conversion is done using the [CloudConvert API](https://cloudconvert.com/api).  You'll need a cloudconvert API token in order to use the service
+Conversion is performed by the [CloudConvert API](https://cloudconvert.com/api).  You'll need a cloudconvert API token in order to use the service
 
 ## Setup
 Clone the repository, then run 
@@ -19,19 +19,19 @@ The bootstrap script creates the /job and /log directories.  You'll need to copy
 match your environment.  The only edits you'll need to make to run are in the `job.config` element:
 
 `{`<br>
-   `"GitHubPAT":"<yourPAT>"` <br>
-   `,"targetRepo":"testrepo"` <br>
-   `,"targetBranch":"master"` <br>
-   `,"targetHost":"github.com"` <br>
-   `,"user":"bryancross"` <br>
-   `,"authType":"oauth"` <br>
-  `,"cloudConvertAPIToken":"<your CloudConvert API token>"` <br>
-  `,"commitMsg":"Auto committed by key2pdf"` <br>
-  `,"deleteTempDir":true` <br>
-  `,"userAgent":"key2pdf"` <br>
-  `,"listenOnPort":3000` <br>
-     `,"callback": ""` <br>
-      `,"debug":false` <br>
+&nbsp;&nbsp;&nbsp;   `"GitHubPAT":"<yourPAT>"` <br>
+&nbsp;&nbsp;&nbsp;   `,"targetRepo":"testrepo"` <br>
+&nbsp;&nbsp;&nbsp;   `,"targetBranch":"master"` <br>
+&nbsp;&nbsp;&nbsp;`,"targetHost":"github.com"` <br>
+&nbsp;&nbsp;&nbsp;   `,"user":"bryancross"` <br>
+&nbsp;&nbsp;&nbsp;   `,"authType":"oauth"` <br>
+&nbsp;&nbsp;&nbsp;  `,"cloudConvertAPIToken":"<your CloudConvert API token>"` <br>
+&nbsp;&nbsp;&nbsp;  `,"commitMsg":"Auto committed by key2pdf"` <br>
+&nbsp;&nbsp;&nbsp;  `,"deleteTempDir":true` <br>
+&nbsp;&nbsp;&nbsp;  `,"userAgent":"key2pdf"` <br>
+&nbsp;&nbsp;&nbsp;  `,"listenOnPort":3000` <br>
+&nbsp;&nbsp;&nbsp;     `,"callback": ""` <br>
+&nbsp;&nbsp;&nbsp;      `,"debug":false` <br>
 `}`
 
 | Parameter | Notes |
@@ -180,7 +180,7 @@ Job data are stored in a directory in the `/job` directory.  The directory name 
 
 ##Testing
 
-You can simulate requests to `key2pdf` by running `test/testConvert.sh`.  This script will fire requests based on parameters configured in `test/test-params.json`.  Each of the keys in the `testCases` array replace the matching key in `key2pdf`s global config.  The host, port, and endpoint determine where the HTTP POST request is sent.
+You can simulate requests to `key2pdf` by running `script/testConvert.sh`.  This script will fire requests based on parameters configured in `test/test-params.json`.  Each of the keys in the `testCases` array replace the matching key in `key2pdf`s global config.  The host, port, and endpoint determine where the HTTP POST request is sent.
 
 `{` <br>
 &nbsp;&nbsp;&nbsp; `   "host":"http://localhost"` <br>
@@ -200,4 +200,10 @@ You can simulate requests to `key2pdf` by running `test/testConvert.sh`.  This s
 &nbsp;&nbsp;&nbsp;`  ]` <br>
 `}` <br> 
 
+### Simulated callback
 
+If you want to test callback functionality, you can run `test/testCallback.sh`.  This launches a simple server that receives HTTP POST events and prints certain components of them to the console.
+
+`*************************`
+`Callback received for job: 70647654761f47d6dfa9cbc8c33d99521a53852b status: Success`
+`*************************`
