@@ -139,6 +139,12 @@ dispatcher.onPost('/status', function (req, res) {
 });
 
 
+dispatcher.onPost('/pushhook', function (req, res) {
+
+console.log(req);
+
+
+});
 /**
  *  dispatcher.onPost(request, response) -> null
  *
