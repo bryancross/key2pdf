@@ -48,7 +48,7 @@ match your environment.  The only edits you'll need to make to run are in the `j
 | `userAgent` | Value for the `user-agent` header sent to GitHub when the node-github API is initialized | 
 | `listenOnPort` | Port on which the server will listen | 
 | `callback` | endpoint URL to be called when a conversion job completes | 
-| `debug` | If true, create the node-github API instance with debug=true.  Otherwise false. |
+| `debug` | If true, create the node-github API instance with `debug=true`.  Otherwise false. |
 
 
 ## Use
