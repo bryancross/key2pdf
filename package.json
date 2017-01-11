@@ -1,0 +1,35 @@
+{
+  "name": "key2pdf",
+  "version": "1.0.0",
+  "description": "Simple idempotent script to convert keynote to PDF using CloudConvert",
+  "main": "server.js",
+  "scripts": {
+    "test": "server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bryancross/key2pdf.git"
+  },
+  "keywords": [
+    "keynote",
+    "pdf",
+    "convert",
+    "cloudconvert"
+  ],
+  "author": "bryancross@github.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bryancross/key2pdf/issues"
+  },
+  "homepage": "https://github.com/bryancross/key2pdf#readme",
+  "dependencies": {
+    "bluebird": "^3.4.7",
+    "cloudconvert": "^1.1.1",
+    "date-fns": "^1.24.0",
+    "github": "^7.2.1",
+    "mkdirp": "^0.5.1",
+    "node-github": "0.0.3",
+    "rimraf": "^2.5.4",
+    "tmp": "0.0.31"
+  }
+}

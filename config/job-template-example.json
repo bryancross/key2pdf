@@ -1,0 +1,32 @@
+{
+   "jobID":""
+  ,"StartTime":""
+  ,"msgs":[]
+  ,"config":
+  {
+    "GitHubPAT":"<your properly scoped PAT>"
+    ,"targetRepo":"testrepo"
+    ,"targetBranch":"master"
+    ,"targetHost":"github.com"
+    ,"owner":"bryancross"
+    ,"user":"bryancross"
+    ,"authType":"oauth"
+    ,"cloudConvertAPIToken":"<your cloudconvert API token>"
+    ,"commitMsg":"Auto committed by key2pdf"
+    ,"deleteTempDir":true
+    ,"userAgent":"key2pdf"
+    ,"listenOnPort":3000
+    ,"pathPrefix": ""
+    ,"callback": ""
+    ,"filePath": ""
+    ,"debug":false
+  }
+  ,"files":[]
+  ,"PDFs":[]
+  ,"errors":[]
+  ,"status":""
+  ,"tempDir":""
+  ,"endTime":""
+  ,"duration":""
+
+}
