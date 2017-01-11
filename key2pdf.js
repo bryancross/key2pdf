@@ -5,6 +5,7 @@
 "use strict";
 
 global.jobs = [];
+
 var util = require('util');
 var crypto = require('crypto');
 var exec = require('child_process').exec;
@@ -13,7 +14,6 @@ var globalJobTemplate = require("./config/job-template.json");
 var fs = require('fs');
 var http = require('http');
 var dispatcher = require('httpdispatcher');
-var mode;
 const PORT = 3000;
 var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
@@ -562,9 +562,7 @@ function cleanup(job)
 
     //write out log file
     fs.writeFile('./log/' + job.jobID + ".json", JSON.stringify(job));
-    if (mode === "script") {
-        process.exit(0);
-    }
+
     //pop the job off the job stack, so it doesn't grow to consume the world
     //Occasionally fails for reasons unknown, so we'll leave it off.
 
