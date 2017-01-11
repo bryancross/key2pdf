@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#npm install
+npm install
 echo "creating log directory"
 mkdir -p log
 echo "Creating jobs directory"
