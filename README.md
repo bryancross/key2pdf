@@ -83,6 +83,13 @@ or to an entire repository, in which case all keynote files in the repository wi
   
 The server expects URLs to be constructed as they would be if you copied the URL from your browser while viewing a file or repository.
 
+You can replace any value in the `job.config` by passing it in the HTTP request, e.g.,
+
+`var options = "{GitHubPAT:<somepat>"` <br>
+`var req = http.request(options, callback);` <br>
+
+
+ 
 ##### Returns
 `convert` will return JSON containing a status message and an ID for the conversion job.  You can use this ID to retrieve the status
 of your job.
