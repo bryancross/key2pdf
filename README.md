@@ -166,7 +166,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 The job object is written out to the `/log` directory.  The filename is the JobID.
  
 ##Temporary Directories
-Job data are stored in a directory in the /job directory.  The directory name is the JobID.  If `config.deleteTempDir` = `true`, 
+Job data are stored in a directory in the `/job` directory.  The directory name is the JobID.  If `config.deleteTempDir` = `true`, 
  this directory will be deleted when the conversion job is complete.
 
 
