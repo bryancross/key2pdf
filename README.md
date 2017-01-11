@@ -182,22 +182,22 @@ Job data are stored in a directory in the `/job` directory.  The directory name 
 
 You can simulate requests to `key2pdf` by running `test/testConvert.sh`.  This script will fire requests based on parameters configured in `test/test-params.json`.  Each of the keys in the `testCases` array replace the matching key in `key2pdf`s global config.  The host, port, and endpoint determine where the HTTP POST request is sent.
 
-> '{
->> '   "host":"http://localhost"
-'  ,"port":3000
-'  ,"endpoint":"convert"
-'  ,"testCases":[
-'    {
-'       "GitHubPAT":"<a properly scoped PAT>"
-'      ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck1.key"
-'      ,"callback":"http://localhost:3001/status"
-'    }
-'    ,  {
-'    "GitHubPAT":"<your properly scoped PAT>"
-'  ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck2.key"
-'  ,"callback":"http://localhost:3001/status"
-'  }
-'  ]
-}
+> `{` <br>
+>> `   "host":"http://localhost"` <br>
+>> `  ,"port":3000` <br>
+`  ,"endpoint":"convert"` <br>
+`  ,"testCases":[` <br>
+`    {` <br>
+`       "GitHubPAT":"<your properly scoped PAT>"` <br>
+`      ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck1.key"` <br>
+`      ,"callback":"http://localhost:3001/status"` <br>
+`    }` <br>
+`    ,  {` <br>
+`    "GitHubPAT":"<your properly scoped PAT>"` <br>
+`  ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck2.key"` <br>
+`  ,"callback":"http://localhost:3001/status"` <br>
+`  }` <br>
+`  ]` <br>
+`}` <br> 
 
 
