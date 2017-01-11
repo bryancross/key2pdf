@@ -8,4 +8,5 @@
 ## TODO (Tactical)
 
 - [ ] Add error handling
-- [ ] Enable users to interactively create config.json when they run bootstrap.sh.
+- [ ] Enable users to interactively create job-template.json when they run bootstrap.sh.
+- [ ] Implement 'catalog' file of keynotes in the root of the repository.
