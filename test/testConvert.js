@@ -13,7 +13,7 @@ for (var i = 0; i < params.testCases.length; i++) {
         port: '3000',
         method: 'POST',
         //This is the only line that is new. `headers` is an object with the headers to request
-        headers: {'custom': 'Custom Header Demo works'}
+
     };
 
     callback = function (response) {
