@@ -342,7 +342,7 @@ function downloadKeynote(keynote, job) {
     var path = job.tempDir + "/" + keynote.path.substr(keynote.path.lastIndexOf("/") + 1);
 
     //Remove illegal characters from path
-    path.replace(" ","_");
+    path = path.replace(/ /g,"_");
 
     log("Beginning content download for: " + keynote.path + " (" + keynote.sha + ")", job);
     //Use the gitdata API to download the blob to our temporary directory
@@ -366,7 +366,7 @@ function downloadKeynote(keynote, job) {
 
 function convertKeynote(keynote, path, job) {
     log("Converting " + keynote.path + " to PDF via CloudConvert", job);
-
+    path.replace(" ","_");
     //Initialize the cloudconvert API using our cloudconvert API token.
     var cloudconvert = new (require('cloudconvert'))(job.config.cloudConvertAPIToken);
 
@@ -393,7 +393,7 @@ function convertKeynote(keynote, path, job) {
 function createNewBlobFromFile(path, keynote, job) {
 
     log("Creating new Blob for " + keynote.path + ".pdf", job);
-
+    path.replace(" ","_");
     //Could not figure out a native node/JS solution for this.  The documented functions didn't work
     //So, we just use the shell tools to base 64 encode the PDF file.
     exec("base64 -i " + path + ".pdf" + " -o " + path + ".pdf.64", function (error, stdout, stderr) {
