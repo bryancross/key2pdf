@@ -8,12 +8,7 @@
       ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck1.key"
       ,"callback":"http://localhost:3001/status"
     }
-  ,{
-       "GitHubPAT":"<your properly scoped PAT>"
-      ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck1.key"
-      ,"callback":"http://localhost:3001/status"
-    }
-  ,  {
+    ,  {
     "GitHubPAT":"<your properly scoped PAT>"
   ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck2.key"
   ,"callback":"http://localhost:3001/status"
