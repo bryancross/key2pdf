@@ -151,7 +151,7 @@ the process has moved far enough, PDF files created and uploaded to GitHub:
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"type": "blob",` <br> 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"sha": "eb1810b784c492d814020a8c0b84e7634e44c4a7",` <br> 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"size": 1404238,` <br> 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"url": &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"https://api.github.com/repos/bryancross/testrepo/git/blobs/eb1810b784c492d814020a8c0b84e7634e44c4a7"` <br> 
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"url":"https://api.github.com/repos/bryancross/testrepo/git/blobs/eb1810b784c492d814020a8c0b84e7634e44c4a7"` <br> 
 &nbsp;&nbsp;&nbsp;`}` <br> 
 &nbsp;&nbsp;&nbsp;`],` <br> 
 &nbsp;&nbsp;&nbsp;`"PDFs": [ // Resulting PDFs committed to the repo` <br> 
