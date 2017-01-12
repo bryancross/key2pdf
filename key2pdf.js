@@ -311,8 +311,7 @@ function createTempDir(job)
     //Use mkdirp to safely create the temp directory
     mkdirp(job.tempDir, function (err) {
         if (err != null) {
-            log("Fatal error creating temp directory: " + err.message, job, "Failed");
-            job.errorMessage = err.message;
+            log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
             cleanup(job);
         }
 
@@ -371,8 +370,7 @@ function convertFilesForBranch(job) {
                 //If a single file was specified and not found
                 if (tree.length === 0 && job.config.hasOwnProperty("filePath"))
                 {
-                    log("No file found in repository for path: " + job.config.filePath, job, "Failed");
-                    job.errorMessage = "No file found in repository for path: " + job.config.filePath;
+                    log("No file found in repository for path: " + job.config.filePath, job, "Failed", {msg:"No file found in repository for path: " + job.config.filePath});
                     cleanup(job);
                     return;
                 }
@@ -659,7 +657,6 @@ function createNewTree(job) {
                                         //The only error I've seen is when commits get out of order (not a fast-forward commit)
                                         //The fix is just to try it again.
                                         //Need to add logic to examine the err object
-                                    console.log("Its an error!");
                                     if(typeof err != 'undefined')
                                     {
                                         log("Fast-forward error, commit conflict", job, "Retrying commit", err);
@@ -704,15 +701,14 @@ function cleanup(job)
     fs.writeFile('./log/' + job.jobID + ".json", JSON.stringify(job));
 
     //pop the job off the job stack, so it doesn't grow to consume the world
-    //Occasionally fails for reasons unknown, so we'll leave it off.
 
-    //for(var i = 0; i < jobs.length; i++)
-    // {
-//        if(jobs[i].jobID === job.jobID)
- //       {
- //           delete jobs[i];
-  //      }
-  //  }
+    for(var i = 0; i < jobs.length; i++)
+     {
+        if(jobs[i].jobID === job.jobID)
+        {
+            jobs.splice(i,1);
+        }
+    }
 
     //execute the callback
     if(!job.config.callback)
@@ -734,8 +730,6 @@ function cleanup(job)
 
     var req = http.request(options, function(res)
     {
-        console.log('Status: ' + res.statusCode);
-        console.log('Headers: ' + JSON.stringify(res.headers));
         res.setEncoding('utf8');
         res.on('data', function (body) {
             //log('Body: ' + body);
