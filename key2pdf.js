@@ -5,8 +5,6 @@
 
 "use strict";
 
-
-
 var util = require('util');
 var crypto = require('crypto');
 var exec = require('child_process').exec;
@@ -23,10 +21,6 @@ var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); /
 var github;
 var jobs = [];
 
-
-//Setup some default configuration parameters based on the values in ./config/config.json.  These
-//will mostly be overwritten in scenarios where key2pdf runs as a server and/or accepts a URL argument.
-//But if you want to just run it on the command line with nothin', you can
 
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
 globalJobTemplate.pathPrefix = (globalJobTemplate.targetHost !== "github.com") ? "/api/v3" : "";
@@ -51,7 +45,7 @@ function dispatchRequest(request, response) {
 //Create a server
 var server = http.createServer(dispatchRequest);
 
-//Startup.  We're always running as a server.  It's 2017, for crissakes.
+//Startup the server
 server.listen(globalJobTemplate.listenOnPort == null ? PORT : globalJobTemplate.listenOnPort, function () {
     //Callback when server is successfully listening
     log("Server listening on: http://localhost: " + PORT);
@@ -100,17 +94,17 @@ function updateConfigFromParams(request, job) {
 
 }
 
-//handle a call to /status.  Find the job in global.jobs, or if it isn't in the array find the log directory, and
+//handle a call to /status.  Find the job in jobs, or if it isn't in the array find the log directory, and
 //return the job log data.
 dispatcher.onPost('/status', function (req, res) {
     var jobID = JSON.parse(req.body).jobID;
 
     ///Search the array of jobs in memory
-    for (var i = 0; i < global.jobs.length; i++) {
-        if (global.jobs[i].jobID === jobID) {
+    for (var i = 0; i < jobs.length; i++) {
+        if (jobs[i].jobID === jobID) {
 
             //Copy the job JSON
-            var status = JSON.parse(JSON.stringify(global.jobs[i]));
+            var status = JSON.parse(JSON.stringify(jobs[i]));
 
             //Delete the github object, since it is 1000s of lines long
             status.delete("github");
@@ -187,6 +181,9 @@ for (var i = 0; i < jobs.length; i++)
         job.config.targetRepo =  commit.repository.name;
         job.config.owner = commit.repository.owner.name;
         job.config.commitTreeSHA =  commit.head_commit.tree_id;
+        job.requestType = "pushhook";
+        job.requestID = commit.head_commit.id;
+
         if(job.config.commit.head_commit.added.length > 0 || job.config.commit.head_commit.modified.length > 0)
         {
             convertFilesForCommit(job);
@@ -231,7 +228,9 @@ dispatcher.onPost('/convert', function (req, res) {
             var params = JSON.parse(req.body);
             //update the config object with any parameters passed in.  Generally just the URL
             updateConfigFromParams(params, job);
-            log("Path: " + job.config.filePath, job, "Processing");
+            job.requestType = 'url';
+            job.requestID = params.url;
+                log("Path: " + job.config.filePath, job, "Processing");
             //All is well, let's go convert!
             //We pass the job object around to preserve state and specific configuration data for each request
             //Another approach would be to create an object for each job, but this approach works just as well
@@ -556,13 +555,12 @@ function createNewBlobFromFile(path, keynote, job) {
     });
 }
 
-//callback to keep track of when files are successfully converted and their new blobs successfully created.
-//As keynotes are converted and their blobs created and uploaded to GitHub, we call here to remove the file from the
+// callback to keep track of when files are successfully converted and their new blobs successfully created.
+// As keynotes are converted and their blobs created and uploaded to GitHub, we call here to remove the file from the
 // keynoteFiles array.  When the array is empty, proceed with building the new tree
 
 function updateKeynoteFileList(blob, keynote, job) {
     log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
-
 
     //push the new PDF blob onto our array of PDFs.  This will become the 'tree' element of our new Git tree later
     job.PDFs.push({
@@ -708,11 +706,11 @@ function cleanup(job)
     //pop the job off the job stack, so it doesn't grow to consume the world
     //Occasionally fails for reasons unknown, so we'll leave it off.
 
-    //for(var i = 0; i < global.jobs.length; i++)
+    //for(var i = 0; i < jobs.length; i++)
     // {
-//        if(global.jobs[i].jobID === job.jobID)
+//        if(jobs[i].jobID === job.jobID)
  //       {
- //           delete global.jobs[i];
+ //           delete jobs[i];
   //      }
   //  }
 
