@@ -12,3 +12,4 @@
 - [ ] Implement 'catalog' file of keynotes in the root of the repository.
 - [ ] Definitively track down where promise rejection errors are trapped.
 - [ ] Deal with removed files.
+- [ ] Commit job logs back to repository
