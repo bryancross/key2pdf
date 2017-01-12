@@ -16,7 +16,6 @@ var fs = require('fs');
 var http = require('http');
 var HttpDispatcher = require('httpdispatcher');
 var dispatcher     = new HttpDispatcher();
-//var dispatcher = require('httpdispatcher');
 const PORT = 3000;
 var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
@@ -59,7 +58,7 @@ server.listen(globalJobTemplate.listenOnPort == null ? PORT : globalJobTemplate.
 });
 
 
-//Replace any global config paramter with parameters
+//Replace any global config parameter with parameters
 //passed in the http request
 function updateConfigFromParams(request, job) {
     var urlComps = request.url.split("/");
@@ -128,7 +127,6 @@ dispatcher.onPost('/status', function (req, res) {
         var logData = fs.readFileSync('./log/' + jobID + '.json', "UTF-8");
         logData = JSON.stringify(logData);
         res.end(logData);
-        return;
     }
     catch(err)
     {
@@ -142,11 +140,7 @@ dispatcher.onPost('/status', function (req, res) {
         {
             res.end('Error retrieving log file for job ID: ' + jobID + " " + err.message);
         }
-
-        return;
     }
-    //We didn't find any log data
-    res.end('No job found for jobID: ' + jobID);
 });
 
 
@@ -174,10 +168,14 @@ for (var i = 0; i < jobs.length; i++)
         log("Ignoring pushhook event");
         return;
     }
-    else
+    //If there are no added or modified files, exit
+    //We still need to deal with removed files...
+    else if (commit.head_commit.added.length === 0 && commit.head_commit.modified.length === 0)
     {
         res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.end(JSON.stringify({msg: "Pushhook event received: ", commitID: commit.head_commit.id}));
+        res.end(JSON.stringify({msg: "Pushhook event received, no added or modified files: ", commitID: commit.head_commit.id}));
+        log("Ignoring pushhook event, no added or modified files.");
+        return;
     }
 
     //If there are, start the process
@@ -218,11 +216,7 @@ for (var i = 0; i < jobs.length; i++)
  **/
 dispatcher.onPost('/convert', function (req, res) {
 
-    var filePath = "";
-    var config;
     var job = initJob();
-
-
 
     if (req.body === "")
     {
@@ -233,7 +227,7 @@ dispatcher.onPost('/convert', function (req, res) {
     else {
         try {
             res.writeHead(200, {'Content-Type': 'text/plain'});
-            res.end(JSON.stringify({msg: "Conversion request recieved", jobID: job.jobID}));
+            res.end(JSON.stringify({msg: "Conversion request received", jobID: job.jobID}));
             var params = JSON.parse(req.body);
             //update the config object with any parameters passed in.  Generally just the URL
             updateConfigFromParams(params, job);
@@ -241,7 +235,8 @@ dispatcher.onPost('/convert', function (req, res) {
             //All is well, let's go convert!
             //We pass the job object around to preserve state and specific configuration data for each request
             //Another approach would be to create an object for each job, but this approach works just as well
-            convertFiles(job);
+            convertFilesForBranch(job);
+            //convertFiles(job);
         }
         catch (err) {
             res.writeHead(406, {'Content-Type': 'text/plain'});
@@ -258,7 +253,6 @@ function initJob()
     var job = JSON.parse(JSON.stringify(globalJobTemplate));
 
 //Attach the new client to the job objects
-    job.github = github;
     job.startTime = format(new Date());
     //Assign a (hopefully) unique ID
     job.jobID = crypto.randomBytes(20).toString('hex');
@@ -280,13 +274,11 @@ function initJob()
     //authenticate using configured credentials
     github.authenticate(auth);
 
-    //attach the client to the job obje
+    //attach the client to the job object
     job.github = github;
     jobs.push(job);
     return job;
 }
-
-
 
 function convertFilesForCommit(job)
 {
@@ -340,7 +332,7 @@ function createTempDir(job)
 //FYI: It seems like the err, res are in the wrong order in in all node-github API calls.  So, even though it's weird to be using the err object, it matches the pattern
 //in the API documentation
 
-function convertFiles(job) {
+function convertFilesForBranch(job) {
 
     var tree = [];
     //create a temp directory.
@@ -381,7 +373,7 @@ function convertFiles(job) {
                 if (tree.length === 0 && job.config.hasOwnProperty("filePath"))
                 {
                     log("No file found in repository for path: " + job.config.filePath, job, "Failed");
-                    job.errorMessage = "No file found in repository for path: " + job.config.filePath, job, "Failed";
+                    job.errorMessage = "No file found in repository for path: " + job.config.filePath;
                     cleanup(job);
                     return;
                 }
@@ -501,8 +493,7 @@ function convertKeynote(keynote, path, job) {
         }))
         .pipe(fs.createWriteStream(path + '.pdf'))
         .on('finish', () => {
-        log("Conversion of " +keynote.path + " complete", job
-)
+        log("Conversion of " +keynote.path + " complete", job);
     createNewBlobFromFile(path, keynote, job);
                     })
         .on('error', function(err) {
@@ -511,7 +502,7 @@ function convertKeynote(keynote, path, job) {
         //Retry.  Need to figure out a way to limit this...
         if(job.hasOwnProperty("retry" + keynote.sha))
         {
-            job["retry" + keynote.sha] = job["retry" + keynote.sha] + 1
+            job["retry" + keynote.sha] = job["retry" + keynote.sha] + 1;
             if(job["retry" + keynote.sha] >= job.maxConvertRetries + 1)
             {
                 log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
@@ -522,7 +513,6 @@ function convertKeynote(keynote, path, job) {
                        job.keynoteFiles.splice(key,1);
                     }
                 }
-                return;
             }
         }
         else
@@ -531,8 +521,7 @@ function convertKeynote(keynote, path, job) {
             convertKeynote(keynote, path, job);
         }
 })
-};;
-
+}
 function createNewBlobFromFile(path, keynote, job) {
 
     log("Creating new Blob for " + keynote.path + ".pdf", job);
@@ -567,22 +556,6 @@ function createNewBlobFromFile(path, keynote, job) {
     });
 }
 
-function getTree(commitSHA, job)
-{
-    job.github.gitdata.getTree({
-        owner: job.config.owner,
-        repo: job.config.targetRepo,
-        sha: commitSHA,
-        recursive: true
-}).then(function (err, res)
-    {
-        job.tree = err.tree;
-    });
-
-    return job;
-
-}
-
 //callback to keep track of when files are successfully converted and their new blobs successfully created.
 //As keynotes are converted and their blobs created and uploaded to GitHub, we call here to remove the file from the
 // keynoteFiles array.  When the array is empty, proceed with building the new tree
@@ -597,7 +570,7 @@ function updateKeynoteFileList(blob, keynote, job) {
         type: "blob",
         mode: "100644",
         sha: blob.sha,
-        url: "https://api.github.com/repos/bryancross/testrepo/git/blobs/" + blob.sha
+        url: "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
     });
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
@@ -710,14 +683,6 @@ function createNewTree(job) {
 function cleanup(job)
 {
     if (job.config.deleteTempDir) {
-        /*
-         rimraf didn't work, so we'll use the shell....
-
-         var rmdir = require('rimraf');
-         rmdir(job.tempDir, null,function(err) {
-         log("Error deleting temp directory. " + err.foo, job);
-         });
-         */
         exec("rm -rf " + job.tempDir, function (error, stdout, stderr) {
             if (error !== null) {
                 log('Error writing out base64: ' + error, job);
@@ -765,7 +730,7 @@ function cleanup(job)
         path: '/' + callbackURLComps[3],
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json'
         }
     };
 
@@ -790,7 +755,6 @@ function cleanup(job)
 
 function log(msg, job, status, error) {
     var datestamp = format(new Date());
-    var entry = {"time": datestamp, "msg": ":     " + msg};
 
     if(job)
     {
