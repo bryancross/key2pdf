@@ -4,8 +4,9 @@
  */
 
 var http = require('http');
-var dispatcher = require('httpdispatcher');
-
+var HttpDispatcher = require('httpdispatcher');
+var dispatcher     = new HttpDispatcher();
+var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
 
 //Create a server
 var server = http.createServer(dispatchRequest)
@@ -31,8 +32,11 @@ function dispatchRequest(request, response) {
 dispatcher.onPost('/status', function (req, res)
 {
     var job = JSON.parse(req.body);
+
     console.log("*************************");
-    console.log("Callback received for job: " + job.jobID + " status: " + job.status);
+    console.log(job.endTime);
+    console.log("Callback received for job: " + job.jobID.substring(10) + " status: " + job.status);
     console.log("*************************");
+    res.end();
 });
 

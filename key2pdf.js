@@ -50,7 +50,7 @@ function dispatchRequest(request, response) {
 
 
 //Create a server
-var server = http.createServer(dispatchRequest)
+var server = http.createServer(dispatchRequest);
 
 //Startup.  We're always running as a server.  It's 2017, for crissakes.
 server.listen(globalJobTemplate.listenOnPort == null ? PORT : globalJobTemplate.listenOnPort, function () {
@@ -183,7 +183,7 @@ for (var i = 0; i < jobs.length; i++)
     //If there are, start the process
 
         var job = initJob();
-        job.config.commit = commit
+        job.config.commit = commit;
         job.config.targetBranch = commit.ref.split('/')[2];
         job.config.targetHost = commit.repository.url.split('/')[2];
         job.config.targetRepo =  commit.repository.name;
@@ -228,71 +228,59 @@ dispatcher.onPost('/convert', function (req, res) {
     {
         res.writeHead(406, {'Content-Type': 'text/plain'});
         res.end('No parameters found in request');
-        return;
+
     }
     else {
         try {
-            var params = JSON.parse(req.body);
-            updateConfigFromParams(params, job);
-            //Create an auth object using configured values.  Will be used to authenticate the GitHub client
-
-
-
-
             res.writeHead(200, {'Content-Type': 'text/plain'});
             res.end(JSON.stringify({msg: "Conversion request recieved", jobID: job.jobID}));
-            log("Path: " + job.filePath, job, "Processing");
+            var params = JSON.parse(req.body);
+            //update the config object with any parameters passed in.  Generally just the URL
+            updateConfigFromParams(params, job);
+            log("Path: " + job.config.filePath, job, "Processing");
             //All is well, let's go convert!
             //We pass the job object around to preserve state and specific configuration data for each request
             //Another approach would be to create an object for each job, but this approach works just as well
             convertFiles(job);
-
         }
         catch (err) {
             res.writeHead(406, {'Content-Type': 'text/plain'});
             res.end('Error initializing' + err.message);
             log("Error initializing: " + err.message, job, "Failed", err);
             cleanup(job);
-            return;
         }
     }
-
-
 });
 
 //setup the job from the template in ./config/job-template.json
 function initJob()
 {
     var job = JSON.parse(JSON.stringify(globalJobTemplate));
-    //  Create a github client using the node-github API https://github.com/mikedeboer/node-github
 
 //Attach the new client to the job objects
     job.github = github;
     job.startTime = format(new Date());
     //Assign a (hopefully) unique ID
     job.jobID = crypto.randomBytes(20).toString('hex');
-
     job.keynoteFiles = [];
+
+    //  Create a github client using the node-github API https://github.com/mikedeboer/node-github
     var github = new GitHubClient({
-        //debug: true,
+        debug: job.config.debug,
         pathPrefix: job.config.pathPrefix
-        /*protocol: "https",
-         host: job.config.targetHost,
-         headers: {"user-agent": job.config.userAgent},
-         Promise: require('bluebird'),
-         followRedirects: false,
-         timeout: 5000
-         */
     });
 
+    //Create an auth object using configured values.  Will be used to authenticate the GitHub client
     var auth = {
         type: job.config.authType
         , token: job.config.GitHubPAT
         , username: job.config.user
     };
 
-//authenticate using configured credentials
+    //authenticate using configured credentials
     github.authenticate(auth);
+
+    //attach the client to the job obje
     job.github = github;
     jobs.push(job);
     return job;
@@ -302,6 +290,9 @@ function initJob()
 
 function convertFilesForCommit(job)
 {
+    //Basically the same thing as convert files, but starting one step later in the process since we already
+    //have a commit.  No need to call getBranch()
+
     //Get the tree for the commit
 
     var newTree = [];
@@ -343,6 +334,9 @@ function createTempDir(job)
 
 
 //Get the current branch, then get the tree, then download all the keynotes contained in the tree
+//Basically the same as convertFilesForCommit, but starting out with a branch instead of a commit object, so
+//we have to get the latest commit for the specified branch.
+//Also, since this is being called in a /convert scenario, do some filtering if the call to /convert specifies a single file
 //FYI: It seems like the err, res are in the wrong order in in all node-github API calls.  So, even though it's weird to be using the err object, it matches the pattern
 //in the API documentation
 
@@ -367,8 +361,9 @@ function convertFiles(job) {
             //If a path was provided, traverse the tree and look for just that single file
             //otherwise get all the keynote files
         {
-            if (!job.config.filePath) {
-                log("Processing all files in repository: " + job.config.targetRepo, job)
+            if (!job.config.filePath)
+            {
+                log("Processing all files in repository: " + job.config.targetRepo, job);
                 //send the entire tree over to getFiles
                 tree = err.tree;
             }
@@ -377,20 +372,20 @@ function convertFiles(job) {
                     if (err.tree[i].path === job.config.filePath) {
                         //create a tree for our single file
                         tree.push(err.tree[i]);
-                        log("Processing single file: " + tree[0].path, job)
+                        log("Processing single file: " + tree[0].path, job);
                         break;
-
-
                     }
                 }
             }
-                if (tree.length === 0) {
-                    log("No file found in repository for path: " + job.filePath, job, "Failed");
-                    job.errorMessage = "No file found in repository for path: " + job.filePath, job, "Failed";
+                //If a single file was specified and not found
+                if (tree.length === 0 && job.config.hasOwnProperty("filePath"))
+                {
+                    log("No file found in repository for path: " + job.config.filePath, job, "Failed");
+                    job.errorMessage = "No file found in repository for path: " + job.config.filePath, job, "Failed";
                     cleanup(job);
                     return;
                 }
-                //go get the files
+                //otherwise go get the files
                 getFiles(tree, job);
 
         })
@@ -413,13 +408,15 @@ function convertFiles(job) {
 //and the PDF blobs created
 function getFiles(tree, job) {
     var curItem;
+    var keynotesFound = false;
 
     for (var i = 0; i < tree.length; i++) {
         curItem = tree[i];
         //look for files matching *.key....
-        if ((/\.(key)$/i).test(curItem.path)) {
+        if ((/\.(key)$/i).test(curItem.path))
+        {
             //Found one!
-            //Update the list of keynote files
+            keynotesFound = true;
             //Download the file
             //If we're working from a commit, filter out all but the files changed in the commit
             if(job.config.hasOwnProperty("commit"))
@@ -428,9 +425,9 @@ function getFiles(tree, job) {
                 {
                     if(curItem.path === job.config.commit.head_commit.added[added])
                     {
-                        job.keynoteFiles.push(curItem)
+                        job.keynoteFiles.push(curItem);
                         job.files.push(curItem);
-                        downloadKeynote(curItem, job)
+                        downloadKeynote(curItem, job);
                         break;
                     }
                 }
@@ -438,22 +435,25 @@ function getFiles(tree, job) {
                 {
                     if(curItem.path === job.config.commit.head_commit.modified[modified])
                     {
-                        job.keynoteFiles.push(curItem)
+                        job.keynoteFiles.push(curItem);
                         job.files.push(curItem);
-                        downloadKeynote(curItem, job)
+                        downloadKeynote(curItem, job);
                         break;
                     }
                 }
             }
             else
             {
-                job.keynoteFiles.push(curItem)
+                job.keynoteFiles.push(curItem);
                 job.files.push(curItem);
                 downloadKeynote(curItem,job);
             }
-
-
         }
+    }
+    if(!keynotesFound)
+    {
+        log("No keynote files found", job, "Complete");
+        cleanup(job);
     }
 }
 
@@ -501,13 +501,37 @@ function convertKeynote(keynote, path, job) {
         }))
         .pipe(fs.createWriteStream(path + '.pdf'))
         .on('finish', () => {
-                    log("Conversion of " +keynote.path + " complete", job);
-                    createNewBlobFromFile(path, keynote, job);
+        log("Conversion of " +keynote.path + " complete", job
+)
+    createNewBlobFromFile(path, keynote, job);
                     })
-        .on('error', () => {
-        log("Conversion of " +keynote.path + " failed", job,"Conversion failure for: " + path,error)});
+        .on('error', function(err) {
 
-}
+        log("Conversion of " +keynote.path + " failed", job, "Conversion failure for: " +path);
+        //Retry.  Need to figure out a way to limit this...
+        if(job.hasOwnProperty("retry" + keynote.sha))
+        {
+            job["retry" + keynote.sha] = job["retry" + keynote.sha] + 1
+            if(job["retry" + keynote.sha] >= job.maxConvertRetries + 1)
+            {
+                log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
+                for (var key = 0; key < job.keynoteFiles.length; key++)
+                {
+                    if(job.keynoteFiles[key].sha = keynote.sha)
+                    {
+                       job.keynoteFiles.splice(key,1);
+                    }
+                }
+                return;
+            }
+        }
+        else
+        {
+            job["retry" + keynote.sha] = 1;
+            convertKeynote(keynote, path, job);
+        }
+})
+};;
 
 function createNewBlobFromFile(path, keynote, job) {
 
@@ -574,7 +598,7 @@ function updateKeynoteFileList(blob, keynote, job) {
         mode: "100644",
         sha: blob.sha,
         url: "https://api.github.com/repos/bryancross/testrepo/git/blobs/" + blob.sha
-    })
+    });
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
     for (var i = 0; i < job.keynoteFiles.length; i++) {
@@ -664,7 +688,7 @@ function createNewTree(job) {
                                         //The only error I've seen is when commits get out of order (not a fast-forward commit)
                                         //The fix is just to try it again.
                                         //Need to add logic to examine the err object
-                                    console.log("Its an error!")
+                                    console.log("Its an error!");
                                     if(typeof err != 'undefined')
                                     {
                                         log("Fast-forward error, commit conflict", job, "Retrying commit", err);
@@ -766,7 +790,7 @@ function cleanup(job)
 
 function log(msg, job, status, error) {
     var datestamp = format(new Date());
-    var entry = {"time": datestamp, "msg": ":     " + msg}
+    var entry = {"time": datestamp, "msg": ":     " + msg};
 
     if(job)
     {
