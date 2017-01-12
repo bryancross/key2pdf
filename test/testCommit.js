@@ -1,7 +1,19 @@
 /**
  * Created by bryancross on 1/11/17.
  */
+/*
 
+Utility to test commits without having to actually do them in GitHub.
+
+To use:
+
+1) Capture a commit payload
+2) Save it to a file, ../payloads/commit-payload.json
+3) Run ../script/testCommit.sh
+
+ */
+*/
+ */
 var http = require('http');
 var params = require('./test-params.json');
 var fs = require('fs');
