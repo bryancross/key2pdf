@@ -5,7 +5,7 @@
 
 "use strict";
 
-global.jobs = [];
+
 
 var util = require('util');
 var crypto = require('crypto');
@@ -22,6 +22,7 @@ var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
 var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); //https://github.com/date-fns/date-fns
 var github;
+var jobs = [];
 
 
 //Setup some default configuration parameters based on the values in ./config/config.json.  These
@@ -151,10 +152,57 @@ dispatcher.onPost('/status', function (req, res) {
 
 dispatcher.onPost('/pushhook', function (req, res) {
 
-console.log(req);
+var commit = JSON.parse(req.body);
 
+for (var i = 0; i < jobs.length; i++)
+{
+   for (var ii = 0; ii < commit.commits.length; ii++)
+   {
+       if(commit.commits[ii].id === jobs[i].commitSHA)
+       {
+           log("Ignoring push event: " + commit.commits[ii].id);
+           commit.commits.splice(ii,1);
+        }
+    }
+}
+
+//Are there any commits left?
+    if (commit.commits.length === 0)
+    {
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(JSON.stringify({msg: "Pushhook event ignored: ", commitID: commit.head_commit.id}));
+        log("Ignoring pushhook event");
+        return;
+    }
+    else
+    {
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(JSON.stringify({msg: "Pushhook event received: ", commitID: commit.head_commit.id}));
+    }
+
+    //If there are, start the process
+
+        var job = initJob();
+        job.config.commit = commit
+        job.config.targetBranch = commit.ref.split('/')[2];
+        job.config.targetHost = commit.repository.url.split('/')[2];
+        job.config.targetRepo =  commit.repository.name;
+        job.config.owner = commit.repository.owner.name;
+        job.config.commitTreeSHA =  commit.head_commit.tree_id;
+        if(job.config.commit.head_commit.added.length > 0 || job.config.commit.head_commit.modified.length > 0)
+        {
+            convertFilesForCommit(job);
+        }
+        //Deal with these later
+        /*
+        for(var rem = 0; rem < job.config.commit.head_commit.removed.length; rem++)
+        {
+
+        }
+        */
 
 });
+
 /**
  *  dispatcher.onPost(request, response) -> null
  *
@@ -187,31 +235,9 @@ dispatcher.onPost('/convert', function (req, res) {
             var params = JSON.parse(req.body);
             updateConfigFromParams(params, job);
             //Create an auth object using configured values.  Will be used to authenticate the GitHub client
-            var auth = {
-                type: job.config.authType
-                , token: job.config.GitHubPAT
-                , username: job.config.user
-            };
 
 
-//  Create a github client using the node-github API https://github.com/mikedeboer/node-github
-            var github = new GitHubClient({
-                //debug: true,
-                pathPrefix: job.config.pathPrefix
-                /*protocol: "https",
-                host: job.config.targetHost,
-                headers: {"user-agent": job.config.userAgent},
-                Promise: require('bluebird'),
-                followRedirects: false,
-                timeout: 5000
-                */
-            });
 
-//authenticate using configured credentials
-            github.authenticate(auth);
-
-//Attach the new client to the job objects
-            job.github = github;
 
             res.writeHead(200, {'Content-Type': 'text/plain'});
             res.end(JSON.stringify({msg: "Conversion request recieved", jobID: job.jobID}));
@@ -238,23 +264,65 @@ dispatcher.onPost('/convert', function (req, res) {
 function initJob()
 {
     var job = JSON.parse(JSON.stringify(globalJobTemplate));
+    //  Create a github client using the node-github API https://github.com/mikedeboer/node-github
+
+//Attach the new client to the job objects
+    job.github = github;
     job.startTime = format(new Date());
     //Assign a (hopefully) unique ID
     job.jobID = crypto.randomBytes(20).toString('hex');
+
     job.keynoteFiles = [];
-    global.jobs.push(job);
+    var github = new GitHubClient({
+        //debug: true,
+        pathPrefix: job.config.pathPrefix
+        /*protocol: "https",
+         host: job.config.targetHost,
+         headers: {"user-agent": job.config.userAgent},
+         Promise: require('bluebird'),
+         followRedirects: false,
+         timeout: 5000
+         */
+    });
+
+    var auth = {
+        type: job.config.authType
+        , token: job.config.GitHubPAT
+        , username: job.config.user
+    };
+
+//authenticate using configured credentials
+    github.authenticate(auth);
+    job.github = github;
+    jobs.push(job);
     return job;
 }
 
 
-//Get the current branch, then get the tree, then download all the keynotes contained in the tree
-//FYI: It seems like the err, res are in the wrong order in in all node-github API calls.  So, even though it's weird to be using the err object, it matches the pattern
-//in the API documentation
 
-function convertFiles(job) {
+function convertFilesForCommit(job)
+{
+    //Get the tree for the commit
 
-    var tree = [];
-    //create a temp directory.
+    var newTree = [];
+
+    //create temp dir
+    createTempDir(job);
+
+    job.github.gitdata.getTree({
+        owner: job.config.owner,
+        repo: job.config.targetRepo,
+        sha: job.config.commitTreeSHA,
+        recursive:true})
+        .then(function(err,res)
+        {
+            newTree = err.tree;
+            getFiles(newTree, job);
+        })
+}
+
+function createTempDir(job)
+{
     var mkdirp = require('mkdirp'); //https://www.npmjs.com/package/mkdirp
     //Push the temp dir path onto the job object for use later
     job.tempDir = './job/' + job.jobID;
@@ -270,6 +338,19 @@ function convertFiles(job) {
 
     log("Temp directory: " + job.tempDir, job);
 
+}
+
+
+
+//Get the current branch, then get the tree, then download all the keynotes contained in the tree
+//FYI: It seems like the err, res are in the wrong order in in all node-github API calls.  So, even though it's weird to be using the err object, it matches the pattern
+//in the API documentation
+
+function convertFiles(job) {
+
+    var tree = [];
+    //create a temp directory.
+    createTempDir(job);
     //get the HEAD commit for the target branch
     //try {
     job.github.repos.getBranch({
@@ -339,10 +420,39 @@ function getFiles(tree, job) {
         if ((/\.(key)$/i).test(curItem.path)) {
             //Found one!
             //Update the list of keynote files
-            job.keynoteFiles.push(curItem)
-            job.files.push(curItem);
             //Download the file
-            downloadKeynote(curItem, job)
+            //If we're working from a commit, filter out all but the files changed in the commit
+            if(job.config.hasOwnProperty("commit"))
+            {
+                for(var added = 0; added < job.config.commit.head_commit.added.length; added++)
+                {
+                    if(curItem.path === job.config.commit.head_commit.added[added])
+                    {
+                        job.keynoteFiles.push(curItem)
+                        job.files.push(curItem);
+                        downloadKeynote(curItem, job)
+                        break;
+                    }
+                }
+                for(var modified = 0; modified < job.config.commit.head_commit.modified.length; modified++)
+                {
+                    if(curItem.path === job.config.commit.head_commit.modified[modified])
+                    {
+                        job.keynoteFiles.push(curItem)
+                        job.files.push(curItem);
+                        downloadKeynote(curItem, job)
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                job.keynoteFiles.push(curItem)
+                job.files.push(curItem);
+                downloadKeynote(curItem,job);
+            }
+
+
         }
     }
 }
@@ -433,6 +543,22 @@ function createNewBlobFromFile(path, keynote, job) {
     });
 }
 
+function getTree(commitSHA, job)
+{
+    job.github.gitdata.getTree({
+        owner: job.config.owner,
+        repo: job.config.targetRepo,
+        sha: commitSHA,
+        recursive: true
+}).then(function (err, res)
+    {
+        job.tree = err.tree;
+    });
+
+    return job;
+
+}
+
 //callback to keep track of when files are successfully converted and their new blobs successfully created.
 //As keynotes are converted and their blobs created and uploaded to GitHub, we call here to remove the file from the
 // keynoteFiles array.  When the array is empty, proceed with building the new tree
@@ -516,8 +642,13 @@ function createNewTree(job) {
                     })
                         .then(function (err, res) {
                             log("Updating references for new commit: " + err.sha, job);
-                            //Update our branch HEAD to point to our new commit
 
+                            //Put the commit SHA on the job object so we can filter this commit out
+                            //when we receive the webhook push event
+
+                            job.commitSHA = err.sha;
+
+                            //Update our branch HEAD to point to our new commit
                             job.github.gitdata.updateReference({
                                 owner: job.config.owner,
                                 repo: job.config.targetRepo,
@@ -534,7 +665,14 @@ function createNewTree(job) {
                                         //The fix is just to try it again.
                                         //Need to add logic to examine the err object
                                     console.log("Its an error!")
-                                    log("Fast-forward error, commit conflict", job, "Retrying commit", err);
+                                    if(typeof err != 'undefined')
+                                    {
+                                        log("Fast-forward error, commit conflict", job, "Retrying commit", err);
+                                    }
+                                    else
+                                    {
+                                        log("Unknown error in create new tree", job, "Retrying commit");
+                                    }
                                         createNewTree(job);
                                     }
                                 )
@@ -639,8 +777,8 @@ function log(msg, job, status, error) {
         job.msgs.push({"time": datestamp, "msg": msg});
         if(error)
         {
-            job.errorMessage = err.message;
-            job.errors.push(err.message);
+            job.errorMessage = error.message;
+            job.errors.push(error.message);
         }
     }
     console.log(datestamp + ":    " + msg);
