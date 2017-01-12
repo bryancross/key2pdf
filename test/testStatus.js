@@ -1,20 +1,24 @@
 /**
- * Created by bryancross on 1/10/17.
- *
+ * Created by bryancross on 1/11/17.
  */
-
 var http = require('http');
 var params = require('./test-params.json');
 
 
-for (var i = 0; i < params.testCases.length; i++) {
+if(process.argv.length != 3)
+{
+    console.log("Usage: node testStatus.js <jobID>");
+    process.exit(1);
+}
+
+var jobID = process.argv[2];
+
+
     var options = {
         host: '127.0.0.1',
-        path: '/convert',
+        path: '/status',
         port: '3000',
-        method: 'POST',
-        //This is the only line that is new. `headers` is an object with the headers to request
-
+        method: 'POST'
     };
 
     callback = function (response) {
@@ -28,7 +32,7 @@ for (var i = 0; i < params.testCases.length; i++) {
         });
     }
 
+
     var req = http.request(options, callback);
-    req.write(JSON.stringify(params.testCases[i]));
+    req.write(JSON.stringify({jobID:jobID}));
     req.end();
-}

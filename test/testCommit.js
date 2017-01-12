@@ -1,16 +1,28 @@
 /**
- * Created by bryancross on 1/10/17.
- *
+ * Created by bryancross on 1/11/17.
  */
+/*
 
+Utility to test commits without having to actually do them in GitHub.
+
+To use:
+
+1) Capture a commit payload
+2) Save it to a file, ../payloads/commit-payload.json
+3) Run ../script/testCommit.sh
+
+ */
+*/
+ */
 var http = require('http');
 var params = require('./test-params.json');
+var fs = require('fs');
+var payload = JSON.parse(fs.readFileSync('./payloads/commit-payload.json'));
 
 
-for (var i = 0; i < params.testCases.length; i++) {
     var options = {
         host: '127.0.0.1',
-        path: '/convert',
+        path: '/pushhook',
         port: '3000',
         method: 'POST',
         //This is the only line that is new. `headers` is an object with the headers to request
@@ -29,6 +41,5 @@ for (var i = 0; i < params.testCases.length; i++) {
     }
 
     var req = http.request(options, callback);
-    req.write(JSON.stringify(params.testCases[i]));
+    req.write(JSON.stringify(payload));
     req.end();
-}

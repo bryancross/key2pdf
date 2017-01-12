@@ -28,6 +28,7 @@
     "date-fns": "^1.24.0",
     "github": "^7.2.1",
     "github-webhook-handler": "^0.6.0",
+    "httpdispatcher": "^2.0.1",
     "mkdirp": "^0.5.1",
     "node-github": "0.0.3",
     "rimraf": "^2.5.4",
