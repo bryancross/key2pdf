@@ -1,0 +1,47 @@
+{
+  "catalog":
+  [
+    {
+      "name": "deck1.key",
+      "sha": "9523e33cc06d11c0841da21cb89e77d4985585a3",
+      "blobpath": "https://github.com/bryancross/testrepo/blob/master/bat/deck2.key",
+      "PDFPath": " https://github.com/bryancross/testrepo/blob/master/bat/deck2.key.pdf",
+      "committer": "bryancross",
+      "commitDate": "2017-01-12T15:25:37.497-06:00",
+      "commitMessages":
+    [
+      {
+        "commitDate": "2017-01-12T08:54:55-06:00",
+        "msg": "this deck is awesome",
+        "committer": "bryancross"
+      },
+      {
+        "commitDate": "2017-01-12T15:25:37.497-06:00",
+        "msg": "this deck is now even more awesome",
+        "committer": "bryancross"
+      }
+    ]
+    }
+    ,
+    {
+      "name": "deck2.key",
+      "sha": "9523e33cc06d11c0841da21cb89e77d4985585a4",
+      "blobpath": "https://github.com/bryancross/testrepo/blob/master/bat/deck2.key",
+      "PDFPath": " https://github.com/bryancross/testrepo/blob/master/bat/deck2.key.pdf",
+      "committer": "bryancross",
+      "commitDate": "2017-01-12T15:25:37.497-06:00",
+      "commitMessages": [
+        {
+          "commitDate": "2017-01-11T15:25:37.497-06:00",
+          "msg": "this deck is more awesome than ever",
+          "committer": "bryancross"
+        },
+        {
+          "commitDate": "2017-01-12T15:25:37.497-06:00",
+          "msg": "Deck 2 rules!",
+          "committer": "bryancross"
+        }
+      ]
+    }
+  ]
+}

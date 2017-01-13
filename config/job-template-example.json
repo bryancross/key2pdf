@@ -18,6 +18,7 @@
 ,"listenOnPort":3000
 ,"callback": ""
 ,"debug":false
+,"jobsLimit":1000
 }
 ,"convertRetries":[]
 ,"files":[]

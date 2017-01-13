@@ -4,6 +4,7 @@ log/
 log.json
 npm-debug.log*
 job/
+payloads/keynote.json
 # Runtime data
 pids
 *.pid

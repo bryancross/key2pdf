@@ -100,6 +100,18 @@ dispatcher.onPost('/status', function (req, res) {
     var jobID = JSON.parse(req.body).jobID;
 
     ///Search the array of jobs in memory
+    var id = findValueInArray(jobs, "jobID", jobID);
+    if(id)
+    {
+        var status = JSON.parse(JSON.stringify(jobs[id]));
+
+        //Delete the github object, since it is 1000s of lines long
+        status.delete("github");
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(JSON.stringify(status));
+        return;
+    }
+    /*
     for (var i = 0; i < jobs.length; i++) {
         if (jobs[i].jobID === jobID) {
 
@@ -113,7 +125,7 @@ dispatcher.onPost('/status', function (req, res) {
             return;
         }
     }
-
+*/
     //If we're still here the job is finished and the job object deleted from the global array
     //So let's see if there's info in the log...
     try
@@ -142,10 +154,12 @@ dispatcher.onPost('/pushhook', function (req, res) {
 
 var commit = JSON.parse(req.body);
 
-for (var i = 0; i < jobs.length; i++)
+
+/*for (var i = 0; i < jobs.length; i++)
 {
-   for (var ii = 0; ii < commit.commits.length; ii++)
+    for (var ii = 0; ii < commit.commits.length; ii++)
    {
+
        if(commit.commits[ii].id === jobs[i].commitSHA)
        {
            log("Ignoring push event: " + commit.commits[ii].id);
@@ -153,6 +167,14 @@ for (var i = 0; i < jobs.length; i++)
         }
     }
 }
+*/
+var commitIndex = findValueBetweenArrays(jobs, commit.commits, "commitSHA","id");
+if(commitIndex)
+{
+    log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
+    commit.commits.splice(commitIndex.array2index,1);
+}
+
 
 //Are there any commits left?
     if (commit.commits.length === 0)
@@ -279,6 +301,24 @@ function initJob()
     return job;
 }
 
+function createTempDir(job)
+{
+    var mkdirp = require('mkdirp'); //https://www.npmjs.com/package/mkdirp
+    //Push the temp dir path onto the job object for use later
+    job.tempDir = './job/' + job.jobID;
+    //Use mkdirp to safely create the temp directory
+    mkdirp(job.tempDir, function (err) {
+        if (err != null) {
+            log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
+            cleanup(job);
+        }
+
+    });
+
+    log("Temp directory: " + job.tempDir, job);
+
+}
+
 function convertFilesForCommit(job)
 {
     //Basically the same thing as convert files, but starting one step later in the process since we already
@@ -302,26 +342,6 @@ function convertFilesForCommit(job)
             getFiles(newTree, job);
         })
 }
-
-function createTempDir(job)
-{
-    var mkdirp = require('mkdirp'); //https://www.npmjs.com/package/mkdirp
-    //Push the temp dir path onto the job object for use later
-    job.tempDir = './job/' + job.jobID;
-    //Use mkdirp to safely create the temp directory
-    mkdirp(job.tempDir, function (err) {
-        if (err != null) {
-            log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
-            cleanup(job);
-        }
-
-    });
-
-    log("Temp directory: " + job.tempDir, job);
-
-}
-
-
 
 //Get the current branch, then get the tree, then download all the keynotes contained in the tree
 //Basically the same as convertFilesForCommit, but starting out with a branch instead of a commit object, so
@@ -358,13 +378,16 @@ function convertFilesForBranch(job) {
                 tree = err.tree;
             }
             else {
-                for (var i = 0; i < err.tree.length; i++) {
-                    if (err.tree[i].path === job.config.filePath) {
+                var treeIndex = findValueInArray(err.tree,"path",job.config.filePath)
+                if(treeIndex)
+                {
+//                for (var i = 0; i < err.tree.length; i++) {
+//                    if (err.tree[i].path === job.config.filePath) {
                         //create a tree for our single file
-                        tree.push(err.tree[i]);
+                        tree.push(err.tree[treeIndex]);
                         log("Processing single file: " + tree[0].path, job);
-                        break;
-                    }
+//                        break;
+//                    }
                 }
             }
                 //If a single file was specified and not found
@@ -379,7 +402,7 @@ function convertFilesForBranch(job) {
 
         })
         //This catch block is never called, apparently, in the case of a failed GitHub API call, e.g.,
-        //bad credentials
+        //bad credentials.  I really feel like it should be...
             .catch(function (err) {
                 log("Error in convertFiles: " + err.message, job, "Failed", err);
                 cleanup(job);
@@ -410,25 +433,21 @@ function getFiles(tree, job) {
             //If we're working from a commit, filter out all but the files changed in the commit
             if(job.config.hasOwnProperty("commit"))
             {
-                for(var added = 0; added < job.config.commit.head_commit.added.length; added++)
+                var addedIndex = findValueInArray(job.config.commit.head_commit.added,null,curItem.path);
+                if(addedIndex)
                 {
-                    if(curItem.path === job.config.commit.head_commit.added[added])
-                    {
-                        job.keynoteFiles.push(curItem);
-                        job.files.push(curItem);
-                        downloadKeynote(curItem, job);
-                        break;
-                    }
+                    job.keynoteFiles.push(curItem);
+                    job.files.push(curItem);
+                    downloadKeynote(curItem, job);
+                    break;
                 }
-                for(var modified = 0; modified < job.config.commit.head_commit.modified.length; modified++)
+                var modifiedIndex = findValueInArray(job.config.commit.head_commit.added,null, curItem.path);
+                if(modifiedIndex)
                 {
-                    if(curItem.path === job.config.commit.head_commit.modified[modified])
-                    {
-                        job.keynoteFiles.push(curItem);
-                        job.files.push(curItem);
-                        downloadKeynote(curItem, job);
-                        break;
-                    }
+                    job.keynoteFiles.push(curItem);
+                    job.files.push(curItem);
+                    downloadKeynote(curItem, job);
+                    break;
                 }
             }
             else
@@ -503,13 +522,11 @@ function convertKeynote(keynote, path, job) {
             if(job["retry" + keynote.sha] >= job.maxConvertRetries + 1)
             {
                 log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
-                for (var key = 0; key < job.keynoteFiles.length; key++)
-                {
-                    if(job.keynoteFiles[key].sha = keynote.sha)
+                var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha);
+                if(keyIndex)
                     {
                        job.keynoteFiles.splice(key,1);
                     }
-                }
             }
         }
         else
@@ -570,10 +587,10 @@ function updateKeynoteFileList(blob, keynote, job) {
     });
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
-    for (var i = 0; i < job.keynoteFiles.length; i++) {
-        if (job.keynoteFiles[i].sha === keynote.sha) {
-            job.keynoteFiles.splice(i, 1);
-        }
+    var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha)
+    if(keyIndex)
+    {
+        job.keynoteFiles.splice(keyIndex, 1);
     }
 
     //Have we retrieved and converted all the keynotes? If so then it's time to create our new tree
@@ -700,15 +717,13 @@ function cleanup(job)
     //write out log file
     fs.writeFile('./log/' + job.jobID + ".json", JSON.stringify(job));
 
-    //pop the job off the job stack, so it doesn't grow to consume the world
+    //don't let the jobs array grow too much...
 
-    for(var i = 0; i < jobs.length; i++)
-     {
-        if(jobs[i].jobID === job.jobID)
-        {
-            jobs.splice(i,1);
-        }
+    if(jobs.length > job.jobsLimit)
+    {
+        jobs.splice(job.jobsLimit,1);
     }
+
 
     //execute the callback
     if(!job.config.callback)
@@ -745,6 +760,21 @@ function cleanup(job)
 
 }
 
+function updateCatalog(job, keynote, commit)
+{
+    //No point in making an entry if we're not working from a commit
+    //Get the catFile, if it doesn't exist create it
+
+
+
+
+
+
+
+
+
+}
+
 function log(msg, job, status, error) {
     var datestamp = format(new Date());
 
@@ -765,6 +795,42 @@ function log(msg, job, status, error) {
 
 }
 
+//given an array and a key, determine the index matching the supplied value
+//returns -1 if there is no match
+function findValueInArray(array, key, value)
+{
+    for(var i = 0;i < array.length; i++)
+    {
+        if(key != null)
+        {
+            if(array[i][key] === value)
+            {
+                return i;
+            }
+        }
+        else if (array[i] === value)
+        {
+            return i;
+        }
+    }
+    return null;
+}
 
 
+function findValueBetweenArrays(array1, array2, key1, key2) {
+    for (var a = 0; a < array1.length; a++) {
+        for (var b = 0; b < array2.length; b++) {
+            if(array1[a][key1] === undefined || array2[b][key2] === undefined)
+            {
+                return null;
+            }
+            if ((array1[a][key1] === array2[b][key2]))
+            {
+                var retval = {array1index:a,array2index:b};
+                return retval;
+            }
+        }
+    }
+    return null;
+}
 
