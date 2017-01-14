@@ -12,8 +12,8 @@ To use:
 3) Run ../script/testCommit.sh
 
  */
-*/
- */
+
+
 var http = require('http');
 var params = require('./test-params.json');
 var fs = require('fs');
