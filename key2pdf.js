@@ -5,7 +5,7 @@
 
 "use strict";
 
-var util = require('util');
+var arrayUtil = require('./lib/arrayUtil.js');
 var crypto = require('crypto');
 var exec = require('child_process').exec;
 var GitHubClient = require("github"); //https://github.com/mikedeboer/node-github
@@ -29,7 +29,8 @@ globalJobTemplate.pathPrefix = (globalJobTemplate.targetHost !== "github.com") ?
 globalJobTemplate.targetHost = (globalJobTemplate.targetHost === "github.com") ? "api.github.com" : globalJobTemplate.targetHost;
 
 //Dispatch request, send response
-function dispatchRequest(request, response) {
+function dispatchRequest(request, response)
+{
     try {
         //Dispatch
         dispatcher.dispatch(request, response);
@@ -51,12 +52,51 @@ server.listen(globalJobTemplate.listenOnPort == null ? PORT : globalJobTemplate.
     log("Server listening on: http://localhost: " + PORT);
 });
 
+//handle a call to /status.  Find the job in jobs, or if it isn't in the array find the log directory, and
+//return the job log data.
+dispatcher.onPost('/status', function (req, res) {
+    var jobID = JSON.parse(req.body).jobID;
+
+    ///Search the array of jobs in memory
+    var id = arrayUtil.findValueInArray(jobs, jobID, "jobID");
+    if (id || id === 0) {
+        var status = JSON.parse(JSON.stringify(jobs[id]));
+
+        //Delete the github object, since it is 1000s of lines long
+        status.delete("github");
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(JSON.stringify(status));
+        return;
+    }
+    //If we're still here the job is finished and the job object deleted from the global array
+    //So let's see if there's info in the log...
+    try
+    {
+        var logData = fs.readFileSync('./log/' + jobID + '.json', "UTF-8");
+        logData = JSON.stringify(logData);
+        res.end(logData);
+    }
+    catch(err)
+    {
+        //no file found
+        if(err.errno === -2)
+        {
+            res.end("No job data found for job ID: " + jobID);
+        }
+        //something else went wrong
+        else
+        {
+            res.end('Error retrieving log file for job ID: ' + jobID + " " + err.message);
+        }
+    }
+});
+
 
 //Replace any global config parameter with parameters
 //passed in the http request
 function updateConfigFromParams(request, job) {
     var urlComps = request.url.split("/");
-    
+
     //Assuming a URL in one of 2 forms:
     // For a single file: https://<host>/<owner>/<repo>/blob/<branch>/<path>
     // For an entire repo: https://<host>/<owner>/<repo>
@@ -94,87 +134,20 @@ function updateConfigFromParams(request, job) {
 
 }
 
-//handle a call to /status.  Find the job in jobs, or if it isn't in the array find the log directory, and
-//return the job log data.
-dispatcher.onPost('/status', function (req, res) {
-    var jobID = JSON.parse(req.body).jobID;
 
-    ///Search the array of jobs in memory
-    var id = findValueInArray(jobs, "jobID", jobID);
-    if(id || id === 0)
-    {
-        var status = JSON.parse(JSON.stringify(jobs[id]));
 
-        //Delete the github object, since it is 1000s of lines long
-        status.delete("github");
-        res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.end(JSON.stringify(status));
-        return;
-    }
-    /*
-    for (var i = 0; i < jobs.length; i++) {
-        if (jobs[i].jobID === jobID) {
-
-            //Copy the job JSON
-            var status = JSON.parse(JSON.stringify(jobs[i]));
-
-            //Delete the github object, since it is 1000s of lines long
-            status.delete("github");
-            res.writeHead(200, {'Content-Type': 'text/plain'});
-            res.end(JSON.stringify(status));
-            return;
-        }
-    }
-*/
-    //If we're still here the job is finished and the job object deleted from the global array
-    //So let's see if there's info in the log...
-    try
-    {
-        var logData = fs.readFileSync('./log/' + jobID + '.json', "UTF-8");
-        logData = JSON.stringify(logData);
-        res.end(logData);
-    }
-    catch(err)
-    {
-        //no file found
-        if(err.errno === -2)
-        {
-            res.end("No job data found for job ID: " + jobID);
-        }
-        //something else went wrong
-        else
-        {
-            res.end('Error retrieving log file for job ID: ' + jobID + " " + err.message);
-        }
-    }
-});
 
 
 dispatcher.onPost('/pushhook', function (req, res) {
 
 var commit = JSON.parse(req.body);
+var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, "commitSHA","id");
 
-
-/*for (var i = 0; i < jobs.length; i++)
-{
-    for (var ii = 0; ii < commit.commits.length; ii++)
-   {
-
-       if(commit.commits[ii].id === jobs[i].commitSHA)
-       {
-           log("Ignoring push event: " + commit.commits[ii].id);
-           commit.commits.splice(ii,1);
-        }
-    }
-}
-*/
-var commitIndex = findValueBetweenArrays(jobs, commit.commits, "commitSHA","id");
-if(commitIndex || commitIndex === 0)
+    if(commitIndex || commitIndex === 0)
 {
     log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
     commit.commits.splice(commitIndex.array2index,1);
 }
-
 
 //Are there any commits left?
     if (commit.commits.length === 0)
@@ -194,10 +167,44 @@ if(commitIndex || commitIndex === 0)
         return;
     }
 
+//Determine if there are any keynotes
+//If not exit
+
+var numKeynoteFiles = 0;
+    for(var add = 0; add < commit.head_commit.added.length;add++)
+    {
+            if(commit.head_commit.added[add].endsWith(".key"))
+            {
+                numKeynoteFiles++;
+                break;
+            }
+    };
+
+    for(var add = 0; add < commit.head_commit.modified.length;add++)
+    {
+        if(commit.head_commit.modified[add].endsWith(".key"))
+        {
+            numKeynoteFiles++;
+            break;
+        }
+    };
+
+    if(!numKeynoteFiles)
+    {
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(JSON.stringify({msg: "Pushhook event received, no keynotes: ", commitID: commit.head_commit.id}));
+        log("Ignoring pushhook event, no keynotes." + commit.head_commit.id);
+        return;
+    }
+
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(JSON.stringify({msg: "Pushhook event received: ", commitID: commit.head_commit.id}));
+        log("Processing pushhook for commit: " + commit.head_commit.id);
+
+
     //If there are, start the process
 
         var job = initJob();
-        job.config.commit = commit;
         job.config.targetBranch = commit.ref.split('/')[2];
         job.config.targetHost = commit.repository.url.split('/')[2];
         job.config.targetRepo =  commit.repository.name;
@@ -207,7 +214,7 @@ if(commitIndex || commitIndex === 0)
         job.requestType = "pushhook";
         job.requestID = commit.head_commit.id;
 
-        if(job.config.commit.head_commit.added.length > 0 || job.config.commit.head_commit.modified.length > 0)
+        if(job.config.pushCommit.head_commit.added.length > 0 || job.config.pushCommit.head_commit.modified.length > 0)
         {
             convertFilesForCommit(job);
         }
@@ -335,7 +342,7 @@ function convertFilesForCommit(job)
     job.github.gitdata.getTree({
         owner: job.config.owner,
         repo: job.config.targetRepo,
-        sha: job.config.commitTreeSHA,
+        sha: job.config.pushCommit.head_commit.id,
         recursive:true})
         .then(function(err,res)
         {
@@ -379,7 +386,7 @@ function convertFilesForBranch(job) {
                 tree = err.tree;
             }
             else {
-                var treeIndex = findValueInArray(err.tree,"path",job.config.filePath)
+                var treeIndex = arrayUtil.findValueInArray(err.tree,job.config.filePath, "path");
                 if(treeIndex || treeIndex === 0)
                 {
 //                for (var i = 0; i < err.tree.length; i++) {
@@ -432,9 +439,9 @@ function getFiles(tree, job) {
             keynotesFound = true;
             //Download the file
             //If we're working from a commit, filter out all but the files changed in the commit
-            if(job.config.hasOwnProperty("commit"))
+            if(job.config.hasOwnProperty("pushCommit"))
             {
-                var addedIndex = findValueInArray(job.config.commit.head_commit.added,null,curItem.path);
+                var addedIndex = arrayUtil.findValueInArray(job.config.pushCommit.head_commit.added,curItem.path);
                 if(addedIndex || addedIndex === 0)
                 {
                     job.keynoteFiles.push(curItem);
@@ -442,7 +449,7 @@ function getFiles(tree, job) {
                     downloadKeynote(curItem, job);
                     break;
                 }
-                var modifiedIndex = findValueInArray(job.config.commit.head_commit.added,null, curItem.path);
+                var modifiedIndex = arrayUtil.findValueInArray(job.config.pushCommit.head_commit.modified, curItem.path);
                 if(modifiedIndex || modifiedIndex === 0)
                 {
                     job.keynoteFiles.push(curItem);
@@ -523,7 +530,7 @@ function convertKeynote(keynote, path, job) {
             if(job["retry" + keynote.sha] >= job.config.maxConvertRetries)
             {
                 log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
-                var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha);
+                var keyIndex = arrayUtil.findValueInArray(job.keynoteFiles,keynote.sha, "sha");
                 if(keyIndex || keyIndex === 0)
                     {
                        job.keynoteFiles.splice(key,1);
@@ -588,7 +595,7 @@ function updateKeynoteFileList(blob, keynote, job) {
     });
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
-    var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha)
+    var keyIndex = arrayUtil.findValueInArray(job.keynoteFiles,keynote.sha, "sha")
     if(keyIndex || keyIndex === 0)
     {
         job.keynoteFiles.splice(keyIndex, 1);
@@ -661,8 +668,8 @@ function createNewTree(job) {
                             //Put the commit SHA on the job object so we can filter this commit out
                             //when we receive the webhook push event
 
-                            job.commitSHA = err.sha;
-                            job.commit = err;
+                            job.newCommitSHA = err.sha;
+                            job.newCommit = err;
                             //Update our branch HEAD to point to our new commit
                             job.github.gitdata.updateReference({
                                 owner: job.config.owner,
@@ -789,44 +796,6 @@ function log(msg, job, status, error) {
 
 }
 
-//given an array and a key, determine the index matching the supplied value
-//returns -1 if there is no match
-function findValueInArray(array, key, value)
-{
-    for(var i = 0;i < array.length; i++)
-    {
-        if(key != null)
-        {
-            if(array[i][key] === value)
-            {
-                return i;
-            }
-        }
-        else if (array[i] === value)
-        {
-            return i;
-        }
-    }
-    return null;
-}
-
-
-function findValueBetweenArrays(array1, array2, key1, key2) {
-    for (var a = 0; a < array1.length; a++) {
-        for (var b = 0; b < array2.length; b++) {
-            if(array1[a][key1] === undefined || array2[b][key2] === undefined)
-            {
-                return null;
-            }
-            if ((array1[a][key1] === array2[b][key2]))
-            {
-                var retval = {array1index:a,array2index:b};
-                return retval;
-            }
-        }
-    }
-    return null;
-}
 
 function updateCatalog(job) {
     job.github.repos.getContent({
@@ -841,7 +810,7 @@ function updateCatalog(job) {
         job.catalog.sha = err.sha;
         updateJSONCatalog(job);
     }).catch(function (err) {
-        log("error downloading keynote-catalog.json",job);
+        log("error downloading keynote-catalog.json",job,"Updating catalog", err);
         job.catalog = [];
         job.catalog.sha = "";
         updateJSONCatalog(job);
@@ -855,7 +824,7 @@ function updateJSONCatalog(job) {
         job.catalog = new Array();
     }
     job.files.forEach(function (keynote) {
-        var index = findValueInArray(job.catalog, "path", keynote.path);
+        var index = arrayUtil.findValueInArray(job.catalog, keynote.path, "path");
         //Make a new entry
         if (!index && index != 0) {
             catEntry = new Object();
@@ -866,9 +835,9 @@ function updateJSONCatalog(job) {
             catEntry.size = keynote.size;
             catEntry.url = "https://" + (job.config.targetHost != 'api.github.com' ? job.config.targetHost : job.config.targetHost.substring(4)) + "/" + job.config.owner + "/" + job.config.targetRepo + "/blob/" + job.config.targetBranch + "/" + keynote.path
             catEntry.PDFurl = catEntry.url + ".pdf"
-            catEntry.committer = typeof job.config.pushCommit === 'undefined' ? job.commit.author.name : job.config.pushCommit.head_commit.author.username;
-            catEntry.commitDate = typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp;
-            catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:(typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.config.pushCommit.head_commit.message)}];
+            catEntry.committer = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username;
+            catEntry.commitDate = typeof job.config.pushCommit === 'undefined' ? job.newCommit.committer.date : job.config.pushCommit.head_commit.timestamp;
+            catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:(typeof job.config.pushCommit === 'undefined' ? job.newCommit.message : job.config.pushCommit.head_commit.message)}];
             job.catalog.push(catEntry);
         }
         else
@@ -876,12 +845,12 @@ function updateJSONCatalog(job) {
         {
             job.catalog[index].size = keynote.size;
             job.catalog[index].sha = keynote.sha
-            job.catalog[index].updatedBy = typeof job.config.pushCommit === 'undefined' ? job.commit.author.name : job.config.pushCommit.head_commit.author.username ;
-            job.catalog[index].updated = typeof job.config.pushCommit === 'undefined' ? job.commit.author.date : job.config.pushCommit.head_commit.timestamp;
+            job.catalog[index].updatedBy = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username ;
+            job.catalog[index].updated = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.date : job.config.pushCommit.head_commit.timestamp;
             job.catalog[index].commitMessages.push({
-                commitDate: typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp
-                , committer: typeof job.config.pushCommit === 'undefined' ? job.commit.author.name : job.config.pushCommit.head_commit.author.username
-                , msg: typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.push_commit.head_commit.message
+                commitDate: typeof job.config.pushCommit === 'undefined' ? job.newCommit.committer.date : job.config.pushCommit.head_commit.timestamp
+                , committer: typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username
+                , msg: typeof job.config.pushCommit === 'undefined' ? job.newCommit.message : job.config.pushCommit.head_commit.message
             })
         }
     })
@@ -965,6 +934,4 @@ function uploadCatalog(job)
             })
 
     })
-
-
 }
