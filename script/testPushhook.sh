@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-node ./test/testPushhook.sh
+node ./test/testPushhook.js

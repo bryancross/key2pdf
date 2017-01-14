@@ -864,10 +864,10 @@ function updateJSONCatalog(job) {
             catEntry.bloburl = keynote.url
             catEntry.sha = keynote.sha;
             catEntry.size = keynote.size;
-            catEntry.url = "https://" + job.config.targetHost + "/" + job.config.owner + "/" + job.config.targetRepo + "/blob/" + job.config.targetBranch + "/" + keynote.path
+            catEntry.url = "https://" + (job.config.targetHost != 'api.github.com' ? job.config.targetHost : job.config.targetHost.substring(4)) + "/" + job.config.owner + "/" + job.config.targetRepo + "/blob/" + job.config.targetBranch + "/" + keynote.path
             catEntry.PDFurl = catEntry.url + ".pdf"
-            catEntry.committer = (typeof job.config.pushCommit === 'undefined' ? job.commit.username : job.config.pushCommit.head_commit.author.username);
-            catEntry.commitDate = (typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp);
+            catEntry.committer = typeof job.config.pushCommit === 'undefined' ? job.commit.author.name : job.config.pushCommit.head_commit.author.username;
+            catEntry.commitDate = typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp;
             catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:(typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.config.pushCommit.head_commit.message)}];
             job.catalog.push(catEntry);
         }
@@ -876,12 +876,12 @@ function updateJSONCatalog(job) {
         {
             job.catalog[index].size = keynote.size;
             job.catalog[index].sha = keynote.sha
-            job.catalog[index].updatedBy = (typeof job.config.pushCommit === 'undefined' ? job.commit.username : job.config.pushCommit.head_commit.author.username) ;
-            job.catalog[index].updated = (typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp);
+            job.catalog[index].updatedBy = typeof job.config.pushCommit === 'undefined' ? job.commit.author.name : job.config.pushCommit.head_commit.author.username ;
+            job.catalog[index].updated = typeof job.config.pushCommit === 'undefined' ? job.commit.author.date : job.config.pushCommit.head_commit.timestamp;
             job.catalog[index].commitMessages.push({
-                commitDate: (typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp)
-                , committer: (typeof job.config.pushCommit === 'undefined' ? job.commit.username : job.config.pushCommit.head_commit.author.username)
-                , msg: (typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.push_commit.head_commit.message)
+                commitDate: typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp
+                , committer: typeof job.config.pushCommit === 'undefined' ? job.commit.author.name : job.config.pushCommit.head_commit.author.username
+                , msg: typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.push_commit.head_commit.message
             })
         }
     })
