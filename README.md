@@ -11,11 +11,15 @@ The `pushhook` endpoint is designed to respond to GitHub webhook push events.
 
 Converted PDFs are committed to GitHub in the same path as their source keynote files.
 
+###Keynote Catalog
+
 Two catalog of PDFs are maintained in the root of the directory: 
  
  - `keynote-catalog.json`: JSON data structure containing catalog data
  - `keynote-catalog.md`: Formatted markdown document with links to the source keynote and PDF files, as well as other metadata.
    Descriptions are derived from commit messages. 
+
+####Example   
    
    ### [deck10.key](https://api.github.com/bryancross/testrepo/blob/master/deck10.key)
    #### [PDF rendition](https://api.github.com/bryancross/testrepo/blob/master/deck10.key.pdf)
