@@ -11,11 +11,27 @@ The `pushhook` endpoint is designed to respond to GitHub webhook push events.
 
 Converted PDFs are committed to GitHub in the same path as their source keynote files.
 
-Two catalog of PDFs is maintained in the root of the directory: 
+Two catalog of PDFs are maintained in the root of the directory: 
  
  - `keynote-catalog.json`: JSON data structure containing catalog data
  - `keynote-catalog.md`: Formatted markdown document with links to the source keynote and PDF files, as well as other metadata.
    Descriptions are derived from commit messages. 
+   
+   ### [deck10.key](https://api.github.com/bryancross/testrepo/blob/master/deck10.key)
+   #### [PDF rendition](https://api.github.com/bryancross/testrepo/blob/master/deck10.key.pdf)
+   |        |        |
+   |--------|--------|
+   |**Author:**|undefined|
+   |**Date:**|2017-01-14T05:11:56Z|
+   |**Size:**|1.5 MB|
+   |**Updated:**|2017-01-14T05:13:44Z|**Updated By:**||
+   |**Description:**|Auto committed by key2pdf
+   
+   ##### Updates:
+   | Date  | Committer | Description |
+   |-------|-----------|-------------|
+   |2017-01-14T05:11:56Z|undefined|Auto committed by key2pdf|
+   |2017-01-14T05:13:44Z|undefined|Auto committed by key2pdf|
 
 Conversion is performed by the [CloudConvert API](https://cloudconvert.com/api).  You'll need a cloudconvert API token in order to use the service
 
@@ -64,7 +80,11 @@ match your environment.  The only edits you'll need to make to run are in the `j
 
 ## Use
 
-run `script/server.js`
+Run `script/server.js`
+
+If `key2pdf` launches successfully you'll see the following on the command line:
+
+`2017-01-14T07:58:59.197-06:00:    Server listening on: http://localhost: 3000`
 
 #### Endpoints
 ##### `POST http://<host>:<port>/convert`
@@ -193,7 +213,7 @@ identical to the `/convert` endpoint.
 
 ##### Returns 
 
-`convert` will return JSON containing a status message and an ID for the conversion job.  You can use this ID to retrieve the status
+`pushhook` will return JSON containing a status message and an ID for the conversion job.  You can use this ID to retrieve the status
 of your job.
 
 `{"msg":"Conversion request recieved","jobID":"947f0f5d8cd92e414ac4056365ffe40cadaa75a9"}`
