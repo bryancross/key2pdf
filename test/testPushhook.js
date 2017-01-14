@@ -19,7 +19,6 @@ var params = require('./test-params.json');
 var fs = require('fs');
 var payload = JSON.parse(fs.readFileSync('./payloads/commit-payload.json'));
 
-
     var options = {
         host: '127.0.0.1',
         path: '/pushhook',

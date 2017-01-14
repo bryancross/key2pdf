@@ -520,7 +520,7 @@ function convertKeynote(keynote, path, job) {
         if(job.hasOwnProperty("retry" + keynote.sha))
         {
             job["retry" + keynote.sha] = job["retry" + keynote.sha] + 1;
-            if(job["retry" + keynote.sha] >= job.maxConvertRetries + 1)
+            if(job["retry" + keynote.sha] >= job.config.maxConvertRetries)
             {
                 log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
                 var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha);
