@@ -18,8 +18,8 @@ const PORT = 3000;
 var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
 var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); //https://github.com/date-fns/date-fns
-var github;
 var jobs = [];
+var b64 = require('js-base64').Base64;
 
 
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
@@ -101,7 +101,7 @@ dispatcher.onPost('/status', function (req, res) {
 
     ///Search the array of jobs in memory
     var id = findValueInArray(jobs, "jobID", jobID);
-    if(id)
+    if(id || id === 0)
     {
         var status = JSON.parse(JSON.stringify(jobs[id]));
 
@@ -169,7 +169,7 @@ var commit = JSON.parse(req.body);
 }
 */
 var commitIndex = findValueBetweenArrays(jobs, commit.commits, "commitSHA","id");
-if(commitIndex)
+if(commitIndex || commitIndex === 0)
 {
     log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
     commit.commits.splice(commitIndex.array2index,1);
@@ -203,6 +203,7 @@ if(commitIndex)
         job.config.targetRepo =  commit.repository.name;
         job.config.owner = commit.repository.owner.name;
         job.config.commitTreeSHA =  commit.head_commit.tree_id;
+        job.config.pushCommit = commit;
         job.requestType = "pushhook";
         job.requestID = commit.head_commit.id;
 
@@ -379,7 +380,7 @@ function convertFilesForBranch(job) {
             }
             else {
                 var treeIndex = findValueInArray(err.tree,"path",job.config.filePath)
-                if(treeIndex)
+                if(treeIndex || treeIndex === 0)
                 {
 //                for (var i = 0; i < err.tree.length; i++) {
 //                    if (err.tree[i].path === job.config.filePath) {
@@ -434,7 +435,7 @@ function getFiles(tree, job) {
             if(job.config.hasOwnProperty("commit"))
             {
                 var addedIndex = findValueInArray(job.config.commit.head_commit.added,null,curItem.path);
-                if(addedIndex)
+                if(addedIndex || addedIndex === 0)
                 {
                     job.keynoteFiles.push(curItem);
                     job.files.push(curItem);
@@ -442,7 +443,7 @@ function getFiles(tree, job) {
                     break;
                 }
                 var modifiedIndex = findValueInArray(job.config.commit.head_commit.added,null, curItem.path);
-                if(modifiedIndex)
+                if(modifiedIndex || modifiedIndex === 0)
                 {
                     job.keynoteFiles.push(curItem);
                     job.files.push(curItem);
@@ -523,7 +524,7 @@ function convertKeynote(keynote, path, job) {
             {
                 log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
                 var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha);
-                if(keyIndex)
+                if(keyIndex || keyIndex === 0)
                     {
                        job.keynoteFiles.splice(key,1);
                     }
@@ -588,9 +589,13 @@ function updateKeynoteFileList(blob, keynote, job) {
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
     var keyIndex = findValueInArray(job.keynoteFiles, "sha",keynote.sha)
-    if(keyIndex)
+    if(keyIndex || keyIndex === 0)
     {
         job.keynoteFiles.splice(keyIndex, 1);
+    }
+    else
+    {
+        console.log("foo");
     }
 
     //Have we retrieved and converted all the keynotes? If so then it's time to create our new tree
@@ -657,7 +662,7 @@ function createNewTree(job) {
                             //when we receive the webhook push event
 
                             job.commitSHA = err.sha;
-
+                            job.commit = err;
                             //Update our branch HEAD to point to our new commit
                             job.github.gitdata.updateReference({
                                 owner: job.config.owner,
@@ -668,7 +673,9 @@ function createNewTree(job) {
                                 .then(function (err, res) {
                                     log("HEAD ref for branch " + job.config.targetBranch + " updated: " + err.object.sha, job, "Success");
                                     //Cleanup by deleting the temp directory and exit
-                                    cleanup(job);
+                                    //update the catalog.  Gotta make this asynch...
+                                    updateCatalog(job);
+
                                 })
                                 .catch(function (err, res) {
                                         //The only error I've seen is when commits get out of order (not a fast-forward commit)
@@ -692,8 +699,7 @@ function createNewTree(job) {
 
 }
 
-function cleanup(job)
-{
+function cleanup(job) {
     if (job.config.deleteTempDir) {
         exec("rm -rf " + job.tempDir, function (error, stdout, stderr) {
             if (error !== null) {
@@ -710,9 +716,12 @@ function cleanup(job)
     job.endTime = format(new Date());
     job.duration = differenceInMilliseconds(parse(job.endTime), parse(job.startTime)) / 1000;
 
+
     //Clean up the log by deleting redundant/unnecessary nodes from the job object
     delete job.keynoteFiles;
     delete job.github;
+
+
 
     //write out log file
     fs.writeFile('./log/' + job.jobID + ".json", JSON.stringify(job));
@@ -757,21 +766,6 @@ function cleanup(job)
     req.write(JSON.stringify(job));
     req.end();
     log("Callback executed");
-
-}
-
-function updateCatalog(job, keynote, commit)
-{
-    //No point in making an entry if we're not working from a commit
-    //Get the catFile, if it doesn't exist create it
-
-
-
-
-
-
-
-
 
 }
 
@@ -834,3 +828,143 @@ function findValueBetweenArrays(array1, array2, key1, key2) {
     return null;
 }
 
+function updateCatalog(job) {
+    job.github.repos.getContent({
+            owner: job.config.owner,
+            repo: job.config.targetRepo,
+            path: "keynote-catalog.json"
+        }
+    ).then(function (err, res) {
+        log("Got keynote-catalog.json: " + err.sha, job);
+        var cat = b64.decode(err.content);
+        job.catalog = JSON.parse(cat);
+        job.catalog.sha = err.sha;
+        updateJSONCatalog(job);
+    }).catch(function (err) {
+        log("error downloading keynote-catalog.json",job);
+        job.catalog = [];
+        job.catalog.sha = "";
+        updateJSONCatalog(job);
+    })
+}
+
+function updateJSONCatalog(job) {
+    var catEntry = null;
+    if(job.catalog.sha === "")
+    {
+        job.catalog = new Array();
+    }
+    job.files.forEach(function (keynote) {
+        var index = findValueInArray(job.catalog, "path", keynote.path);
+        //Make a new entry
+        if (!index && index != 0) {
+            catEntry = new Object();
+            //catEntry = require("../config/catalog-entry-template.json");
+            catEntry.path = keynote.path;
+            catEntry.bloburl = keynote.url
+            catEntry.sha = keynote.sha;
+            catEntry.size = keynote.size;
+            catEntry.url = "https://" + job.config.targetHost + "/" + job.config.owner + "/" + job.config.targetRepo + "/blob/" + job.config.targetBranch + "/" + keynote.path
+            catEntry.PDFurl = catEntry.url + ".pdf"
+            catEntry.committer = (typeof job.config.pushCommit === 'undefined' ? job.commit.username : job.config.pushCommit.head_commit.author.username);
+            catEntry.commitDate = (typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp);
+            catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:(typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.config.pushCommit.head_commit.message)}];
+            job.catalog.push(catEntry);
+        }
+        else
+        //Add commit message to existing entry
+        {
+            job.catalog[index].size = keynote.size;
+            job.catalog[index].sha = keynote.sha
+            job.catalog[index].updatedBy = (typeof job.config.pushCommit === 'undefined' ? job.commit.username : job.config.pushCommit.head_commit.author.username) ;
+            job.catalog[index].updated = (typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp);
+            job.catalog[index].commitMessages.push({
+                commitDate: (typeof job.config.pushCommit === 'undefined' ? job.commit.committer.date : job.config.pushCommit.head_commit.timestamp)
+                , committer: (typeof job.config.pushCommit === 'undefined' ? job.commit.username : job.config.pushCommit.head_commit.author.username)
+                , msg: (typeof job.config.pushCommit === 'undefined' ? job.commit.message : job.push_commit.head_commit.message)
+            })
+        }
+    })
+    var catContent = b64.encode(JSON.stringify(job.catalog));
+    if(typeof job.catalog.sha === 'undefined' || job.catalog.sha === "")
+    {
+
+        job.github.repos.createFile({owner:job.config.owner,repo:job.config.targetRepo,path:"keynote-catalog.json",message:job.config.commitMsg,content:catContent})
+            .then(function(err, res)
+            {
+                updateMarkdownCatalog(job);
+            })
+    }
+    else
+    {
+        job.github.repos.updateFile({owner:job.config.owner, repo:job.config.targetRepo, path:"keynote-catalog.json",message:job.config.commitMsg,content:catContent,sha:job.catalog.sha})
+            .then(function(err,res)
+            {
+                updateMarkdownCatalog(job);
+            })
+    }
+
+}
+
+function updateMarkdownCatalog(job)
+{
+    var output = "";
+    job.catalog.forEach(function(cat)
+    {
+        output = output + "### [" + cat.path + "](" + cat.url + ")\n" ;
+        output = output + "#### [PDF rendition](" + cat.PDFurl + ")\n";
+        output = output + "|        |        |\n";
+        output = output + "|--------|--------|\n";
+        output = output + "|**Author:**|" + cat.committer + "|\n";
+        output = output + "|**Date:**|" + cat.commitDate + "|\n";
+        output = output + "|**Size:**|" + (cat.size/1024/1024).toString().split(".")[0] + "." + (cat.size/1024/1024).toString().split(".")[1].substring(1,2) + " MB|\n";
+        output = output + "|**Updated:**|" + (typeof cat.updated != 'undefined' ? cat.updated : "|\n");
+        output = output + "|**Updated By:**|" + (typeof cat.updater != 'undefined' ? cat.updater : "|\n");
+        output = output + "|**Description:**|" + cat.commitMessages[0].msg + "\n";
+        output = output + "\n";
+        output = output + "##### Updates:\n";
+        output = output + "| Date  | Committer | Description |\n";
+        output = output + "|-------|-----------|-------------|\n"
+
+        cat.commitMessages.forEach(function(msg)
+        {
+            output = output + "|" + msg.commitDate + "|";
+            output = output + msg.committer + "|";
+            output = output + msg.msg + "|\n";
+        });
+    });
+    job.markdownCatalog = output;
+    uploadCatalog(job)
+}
+
+function uploadCatalog(job)
+{
+    var b64content = b64.encode(job.markdownCatalog)
+    job.github.repos.getContent({owner:job.config.owner,
+        repo:job.config.targetRepo,
+        path:"keynote-catalog.md"}
+    ).then(function(err,res){
+        log("Found Markdown Catalog" + err.sha, job);
+
+        job.github.repos.updateFile({owner:job.config.owner, repo:job.config.targetRepo, path:"keynote-catalog.md",message:job.config.commitMsg,content:b64content,sha:err.sha})
+            .then(function(err,res)
+            {
+                log("Markdown catalog updated", job,"Finishing");
+                delete job.catalog;
+                delete job.markdownCatalog;
+                cleanup(job);
+            })
+    }).catch(function(err){
+        job.github.repos.createFile({owner:job.config.owner,repo:job.config.targetRepo,path:"keynote-catalog.md",message:job.config.commitMsg,content:b64content})
+            .then(function(err,res)
+            {
+                log("Markdown catalog uploaded", job,"Finishing");
+                delete job.catalog;
+                delete job.markdownCatalog;
+                cleanup(job);
+            })
+
+    })
+
+
+}
