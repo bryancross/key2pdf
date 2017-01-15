@@ -121,7 +121,8 @@ If `key2pdf` launches successfully you'll see the following on the command line:
 ##### Parameters
 |Name|Type|Description|
 |----|----|-----------|
-|url  |string|Url to either a specific file in GitHub, or a repository, as explained below|
+|url <required> |string|Url to either a specific file in GitHub, or a repository, as explained below|
+|options <optional|object|one or more parameters using keys from job-template.json.
 
 The `url` can point to a specific file on a specific branch, in which case only the specified file will be converted:
 
@@ -139,7 +140,7 @@ The server expects URLs to be constructed as they would be if you copied the URL
 
 You can replace any value in the `job.config` by passing it in the HTTP request, e.g.,
 
-`var options = "{GitHubPAT:<somepat>"` <br>
+`var options = {url:"your target URL",GitHubPAT:"<somepat>"}` <br>
 `var req = http.request(options, callback);` <br>
 
 However, the components of the URL will be extracted and will overwrite the following `config` elements:
