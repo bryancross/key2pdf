@@ -85,8 +85,8 @@ match your environment.  The only edits you'll need to make to run are in the `j
 
 ###Using ngrok to proxy webhooks to your laptop
 
-If you are using a computer You can use [ngrok](https://ngrok.com/) to quickly and easy setup a proxy server to redirect webhooks from GitHub.com
-to expose your computer behind NAT or a firewall:
+You can use [ngrok](https://ngrok.com/) to quickly and easy setup a proxy server to redirect webhooks from GitHub.com
+to your computer behind NAT or a firewall:
  
  1. Install ngrok
  2. Run tunnel.sh
