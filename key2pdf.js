@@ -4,8 +4,10 @@
  */
 
 "use strict";
-
+var logger = require('./lib/logger.js');
+//var catalog = require('./lib/catalog');
 var arrayUtil = require('./lib/arrayUtil.js');
+var b64 = require('js-base64').Base64;
 var crypto = require('crypto');
 var exec = require('child_process').exec;
 var GitHubClient = require("github"); //https://github.com/mikedeboer/node-github
@@ -19,7 +21,7 @@ var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
 var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); //https://github.com/date-fns/date-fns
 var jobs = [];
-var b64 = require('js-base64').Base64;
+
 
 
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
@@ -37,7 +39,7 @@ function dispatchRequest(request, response)
 
     }
     catch (e) {
-        log(e)
+        logger.log(e)
     }
 }
 
@@ -49,7 +51,7 @@ var server = http.createServer(dispatchRequest);
 //Startup the server
 server.listen(globalJobTemplate.listenOnPort == null ? PORT : globalJobTemplate.listenOnPort, function () {
     //Callback when server is successfully listening
-    log("Server listening on: http://localhost: " + PORT);
+    logger.log("Server listening on: http://localhost: " + PORT);
 });
 
 //handle a call to /status.  Find the job in jobs, or if it isn't in the array find the log directory, and
@@ -135,9 +137,6 @@ function updateConfigFromParams(request, job) {
 }
 
 
-
-
-
 dispatcher.onPost('/pushhook', function (req, res) {
 
 var commit = JSON.parse(req.body);
@@ -145,7 +144,7 @@ var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, 
 
     if(commitIndex || commitIndex === 0)
 {
-    log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
+    logger.log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
     commit.commits.splice(commitIndex.array2index,1);
 }
 
@@ -154,7 +153,7 @@ var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, 
     {
         res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end(JSON.stringify({msg: "Pushhook event ignored: ", commitID: commit.head_commit.id}));
-        log("Ignoring pushhook event");
+        logger.log("Ignoring pushhook event");
         return;
     }
     //If there are no added or modified files, exit
@@ -163,7 +162,7 @@ var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, 
     {
         res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end(JSON.stringify({msg: "Pushhook event received, no added or modified files: ", commitID: commit.head_commit.id}));
-        log("Ignoring pushhook event, no added or modified files.");
+        logger.log("Ignoring pushhook event, no added or modified files.");
         return;
     }
 
@@ -193,13 +192,13 @@ var numKeynoteFiles = 0;
     {
         res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end(JSON.stringify({msg: "Pushhook event received, no keynotes: ", commitID: commit.head_commit.id}));
-        log("Ignoring pushhook event, no keynotes." + commit.head_commit.id);
+        logger.log("Ignoring pushhook event, no keynotes." + commit.head_commit.id);
         return;
     }
 
         res.writeHead(200, {'Content-Type': 'text/plain'});
         res.end(JSON.stringify({msg: "Pushhook event received: ", commitID: commit.head_commit.id}));
-        log("Processing pushhook for commit: " + commit.head_commit.id);
+        logger.log("Processing pushhook for commit: " + commit.head_commit.id);
 
 
     //If there are, start the process
@@ -244,12 +243,11 @@ var numKeynoteFiles = 0;
 dispatcher.onPost('/convert', function (req, res) {
 
     var job = initJob();
-
+    job.logger = logger;
     if (req.body === "")
     {
         res.writeHead(406, {'Content-Type': 'text/plain'});
         res.end('No parameters found in request');
-
     }
     else {
         try {
@@ -260,7 +258,7 @@ dispatcher.onPost('/convert', function (req, res) {
             updateConfigFromParams(params, job);
             job.requestType = 'url';
             job.requestID = params.url;
-                log("Path: " + job.config.filePath, job, "Processing");
+            logger.log("Path: " + job.config.filePath, job, "Processing");
             //All is well, let's go convert!
             //We pass the job object around to preserve state and specific configuration data for each request
             //Another approach would be to create an object for each job, but this approach works just as well
@@ -270,7 +268,7 @@ dispatcher.onPost('/convert', function (req, res) {
         catch (err) {
             res.writeHead(406, {'Content-Type': 'text/plain'});
             res.end('Error initializing' + err.message);
-            log("Error initializing: " + err.message, job, "Failed", err);
+            logger.log("Error initializing: " + err.message, job, "Failed", err);
             cleanup(job);
         }
     }
@@ -317,13 +315,13 @@ function createTempDir(job)
     //Use mkdirp to safely create the temp directory
     mkdirp(job.tempDir, function (err) {
         if (err != null) {
-            log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
+            logger.log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
             cleanup(job);
         }
 
     });
 
-    log("Temp directory: " + job.tempDir, job);
+    logger.log("Temp directory: " + job.tempDir, job);
 
 }
 
@@ -381,7 +379,7 @@ function convertFilesForBranch(job) {
         {
             if (!job.config.filePath)
             {
-                log("Processing all files in repository: " + job.config.targetRepo, job);
+                logger.log("Processing all files in repository: " + job.config.targetRepo, job);
                 //send the entire tree over to getFiles
                 tree = err.tree;
             }
@@ -393,7 +391,7 @@ function convertFilesForBranch(job) {
 //                    if (err.tree[i].path === job.config.filePath) {
                         //create a tree for our single file
                         tree.push(err.tree[treeIndex]);
-                        log("Processing single file: " + tree[0].path, job);
+                        logger.log("Processing single file: " + tree[0].path, job);
 //                        break;
 //                    }
                 }
@@ -401,7 +399,7 @@ function convertFilesForBranch(job) {
                 //If a single file was specified and not found
                 if (tree.length === 0 && job.config.hasOwnProperty("filePath"))
                 {
-                    log("No file found in repository for path: " + job.config.filePath, job, "Failed", {msg:"No file found in repository for path: " + job.config.filePath});
+                    logger.log("No file found in repository for path: " + job.config.filePath, job, "Failed", {msg:"No file found in repository for path: " + job.config.filePath});
                     cleanup(job);
                     return;
                 }
@@ -412,7 +410,7 @@ function convertFilesForBranch(job) {
         //This catch block is never called, apparently, in the case of a failed GitHub API call, e.g.,
         //bad credentials.  I really feel like it should be...
             .catch(function (err) {
-                log("Error in convertFiles: " + err.message, job, "Failed", err);
+                logger.log("Error in convertFiles: " + err.message, job, "Failed", err);
                 cleanup(job);
             })
     })
@@ -468,7 +466,7 @@ function getFiles(tree, job) {
     }
     if(!keynotesFound)
     {
-        log("No keynote files found", job, "Complete");
+        logger.log("No keynote files found", job, "Complete");
         cleanup(job);
     }
 }
@@ -479,7 +477,7 @@ function downloadKeynote(keynote, job) {
     //Remove illegal characters from path
     path = path.replace(/ /g,"_");
 
-    log("Beginning content download for: " + keynote.path + " (" + keynote.sha + ")", job);
+    logger.log("Beginning content download for: " + keynote.path + " (" + keynote.sha + ")", job);
     //Use the gitdata API to download the blob to our temporary directory
     //Async call, so use promises to pipe result to the convertKeynote function
     job.github.gitdata.getBlob({owner: job.config.owner, repo: job.config.targetRepo, sha: keynote.sha})
@@ -489,10 +487,10 @@ function downloadKeynote(keynote, job) {
             fs.writeFile(path, new Buffer(err.content, "base64"), function (error) {
                 if (error) {
                     //Probably should do something more useful here
-                    log("Error downloading file: " + error.message, job, "File download failed", error);
+                    logger.log("Error downloading file: " + error.message, job, "File download failed", error);
                 }
                 //update the user
-                log("Content downloaded for: " + keynote.path + " (" + keynote.sha + ")", job);
+                logger.log("Content downloaded for: " + keynote.path + " (" + keynote.sha + ")", job);
                 //send the file for conversion
                 convertKeynote(keynote, path, job);
             })
@@ -500,7 +498,7 @@ function downloadKeynote(keynote, job) {
 }
 
 function convertKeynote(keynote, path, job) {
-    log("Converting " + keynote.path + " to PDF via CloudConvert", job);
+    logger.log("Converting " + keynote.path + " to PDF via CloudConvert", job);
     path.replace(" ","_");
     //Initialize the cloudconvert API using our cloudconvert API token.
     var cloudconvert = new (require('cloudconvert'))(job.config.cloudConvertAPIToken);
@@ -517,19 +515,19 @@ function convertKeynote(keynote, path, job) {
         }))
         .pipe(fs.createWriteStream(path + '.pdf'))
         .on('finish', () => {
-        log("Conversion of " +keynote.path + " complete", job);
+        logger.log("Conversion of " +keynote.path + " complete", job);
     createNewBlobFromFile(path, keynote, job);
                     })
         .on('error', function(err) {
 
-        log("Conversion of " +keynote.path + " failed", job, "Conversion failure for: " +path);
+        logger.log("Conversion of " +keynote.path + " failed", job, "Conversion failure for: " +path);
         //Retry.  Need to figure out a way to limit this...
         if(job.hasOwnProperty("retry" + keynote.sha))
         {
             job["retry" + keynote.sha] = job["retry" + keynote.sha] + 1;
             if(job["retry" + keynote.sha] >= job.config.maxConvertRetries)
             {
-                log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
+                logger.log("Maximum number of conversion retries exceeded: " + path, job, "Conversion failure");
                 var keyIndex = arrayUtil.findValueInArray(job.keynoteFiles,keynote.sha, "sha");
                 if(keyIndex || keyIndex === 0)
                     {
@@ -546,15 +544,15 @@ function convertKeynote(keynote, path, job) {
 }
 function createNewBlobFromFile(path, keynote, job) {
 
-    log("Creating new Blob for " + keynote.path + ".pdf", job);
+    logger.log("Creating new Blob for " + keynote.path + ".pdf", job);
     path.replace(" ","_");
     //Could not figure out a native node/JS solution for this.  The documented functions didn't work
     //So, we just use the shell tools to base 64 encode the PDF file.
     exec("base64 -i " + path + ".pdf" + " -o " + path + ".pdf.64", function (error, stdout, stderr) {
         if (error !== null) {
-            log('Error writing out base64: ' + error, job);
-            log('stdout: ' + stdout, job);
-            log('stderr: ' + stderr, job);
+            logger.log('Error writing out base64: ' + error, job);
+            logger.log('stdout: ' + stdout, job);
+            logger.log('stderr: ' + stderr, job);
         }
         else {
             //Now the encoded file is itself encoded in UTF-8, which we'll send up to GitHub
@@ -572,7 +570,7 @@ function createNewBlobFromFile(path, keynote, job) {
                     updateKeynoteFileList(err, keynote, job)
                 })
                 .catch(function (err, res) {
-                    log("Error creating BLOB for " + path + ": " + err.message, job);
+                    logger.log("Error creating BLOB for " + path + ": " + err.message, job);
                 });
         }
     });
@@ -583,7 +581,7 @@ function createNewBlobFromFile(path, keynote, job) {
 // keynoteFiles array.  When the array is empty, proceed with building the new tree
 
 function updateKeynoteFileList(blob, keynote, job) {
-    log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
+    logger.log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
 
     //push the new PDF blob onto our array of PDFs.  This will become the 'tree' element of our new Git tree later
     job.PDFs.push({
@@ -602,31 +600,31 @@ function updateKeynoteFileList(blob, keynote, job) {
     }
     else
     {
-        console.log("foo");
+        console.logger.log("foo");
     }
 
     //Have we retrieved and converted all the keynotes? If so then it's time to create our new tree
     if (job.keynoteFiles.length === 0) {
-        log("All keynotes converted and new blobs created", job);
+        logger.log("All keynotes converted and new blobs created", job);
         createNewTree(job);
     }
 }
 
 function createNewTree(job) {
-    log("Creating new tree...", job);
+    logger.log("Creating new tree...", job);
 
     //Get the latest commit and tree.  We are doing this again in case there were any commits between the time we first retrieved the commit and now.
     //We want to be sure we're using the latest commit as our parent.  This is actually a shortcoming in this approach, as there's no way to _completely_
     //mitigate this risk.
-    log("Fetching latest commit", job);
+    logger.log("Fetching latest commit", job);
     job.github.repos.getBranch({
         owner: job.config.owner,
         repo: job.config.targetRepo,
         branch: job.config.targetBranch
     }).then(function (err, res) {
         var curCommit = err.commit;
-        log("Current commit SHA: " + curCommit.sha, job);
-        log("Fetching current tree", job);
+        logger.log("Current commit SHA: " + curCommit.sha, job);
+        logger.log("Fetching current tree", job);
         job.github.gitdata.getTree({
             owner: job.config.owner,
             repo: job.config.targetRepo,
@@ -635,10 +633,10 @@ function createNewTree(job) {
         }).then(function (err, res) {
 
             var curCommitTree = err;
-            log("Current tree SHA: " + curCommitTree.sha, job);
+            logger.log("Current tree SHA: " + curCommitTree.sha, job);
 
             //Start with a clean tree
-            log("Deleting TREE");
+            logger.log("Deleting TREE");
             delete curCommitTree.tree;
 
             //Only commit the PDFs
@@ -653,7 +651,7 @@ function createNewTree(job) {
                 base_tree: curCommitTree.sha
             })
                 .then(function (err, res) {
-                    log("Creating new commit for tree: " + err.sha, job);
+                    logger.log("Creating new commit for tree: " + err.sha, job);
                     //Create the new commit object using the provided tree and parent commit SHA.
                     job.github.gitdata.createCommit({
                         owner: job.config.owner,
@@ -663,7 +661,7 @@ function createNewTree(job) {
                         parents: [curCommit.sha]
                     })
                         .then(function (err, res) {
-                            log("Updating references for new commit: " + err.sha, job);
+                            logger.log("Updating references for new commit: " + err.sha, job);
 
                             //Put the commit SHA on the job object so we can filter this commit out
                             //when we receive the webhook push event
@@ -678,10 +676,10 @@ function createNewTree(job) {
                                 sha: err.sha
                             })
                                 .then(function (err, res) {
-                                    log("HEAD ref for branch " + job.config.targetBranch + " updated: " + err.object.sha, job, "Success");
+                                    logger.log("HEAD ref for branch " + job.config.targetBranch + " updated: " + err.object.sha, job, "Success");
                                     //Cleanup by deleting the temp directory and exit
                                     //update the catalog.  Gotta make this asynch...
-                                    updateCatalog(job);
+                                    updateCatalog(job, function(job){cleanup(job)});
 
                                 })
                                 .catch(function (err, res) {
@@ -690,11 +688,11 @@ function createNewTree(job) {
                                         //Need to add logic to examine the err object
                                     if(typeof err != 'undefined')
                                     {
-                                        log("Fast-forward error, commit conflict", job, "Retrying commit", err);
+                                        logger.log("Fast-forward error, commit conflict", job, "Retrying commit", err);
                                     }
                                     else
                                     {
-                                        log("Unknown error in create new tree", job, "Retrying commit");
+                                        logger.log("Unknown error in create new tree", job, "Retrying commit");
                                     }
                                         createNewTree(job);
                                     }
@@ -710,12 +708,12 @@ function cleanup(job) {
     if (job.config.deleteTempDir) {
         exec("rm -rf " + job.tempDir, function (error, stdout, stderr) {
             if (error !== null) {
-                log('Error writing out base64: ' + error, job);
-                log('stdout: ' + stdout, job);
-                log('stderr: ' + stderr, job);
+                logger.log('Error writing out base64: ' + error, job);
+                logger.log('stdout: ' + stdout, job);
+                logger.log('stderr: ' + stderr, job);
             }
             else {
-                log("Temporary directory deleted", job);
+                logger.log("Temporary directory deleted", job);
             }
         })
     }
@@ -763,19 +761,20 @@ function cleanup(job) {
     {
         res.setEncoding('utf8');
         res.on('data', function (body) {
-            //log('Body: ' + body);
+            //logger.log('Body: ' + body);
         });
     });
     req.on('error', function(e) {
-        log('Error executing callback: ' + e.message);
+        logger.log('Error executing callback: ' + e.message);
     });
 // write data to request body
     req.write(JSON.stringify(job));
     req.end();
-    log("Callback executed");
+    logger.log("Callback executed");
 
 }
 
+/*
 function log(msg, job, status, error) {
     var datestamp = format(new Date());
 
@@ -792,11 +791,11 @@ function log(msg, job, status, error) {
             job.errors.push(error.message);
         }
     }
-    console.log(datestamp + ":    " + msg);
+    console.logger.log(datestamp + ":    " + msg);
 
 }
 
-
+*/
 function updateCatalog(job) {
     job.github.repos.getContent({
             owner: job.config.owner,
@@ -804,13 +803,13 @@ function updateCatalog(job) {
             path: "keynote-catalog.json"
         }
     ).then(function (err, res) {
-        log("Got keynote-catalog.json: " + err.sha, job);
+        logger.log("Got keynote-catalog.json: " + err.sha, job);
         var cat = b64.decode(err.content);
         job.catalog = JSON.parse(cat);
         job.catalog.sha = err.sha;
         updateJSONCatalog(job);
     }).catch(function (err) {
-        log("error downloading keynote-catalog.json",job,"Updating catalog", err);
+        logger.log("error downloading keynote-catalog.json",job,"Updating catalog", err);
         job.catalog = [];
         job.catalog.sha = "";
         updateJSONCatalog(job);
@@ -837,7 +836,8 @@ function updateJSONCatalog(job) {
             catEntry.PDFurl = catEntry.url + ".pdf"
             catEntry.committer = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username;
             catEntry.commitDate = typeof job.config.pushCommit === 'undefined' ? job.newCommit.committer.date : job.config.pushCommit.head_commit.timestamp;
-            catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:(typeof job.config.pushCommit === 'undefined' ? job.newCommit.message : job.config.pushCommit.head_commit.message)}];
+            catEntry.originalCommitMsg = typeof job.config.pushCommit === 'undefined' ? job.newCommit.message : job.config.pushCommit.head_commit.message;
+            catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:catEntry.originalCommitMsg}];
             job.catalog.push(catEntry);
         }
         else
@@ -889,7 +889,7 @@ function updateMarkdownCatalog(job)
         output = output + "|**Size:**|" + (cat.size/1024/1024).toString().split(".")[0] + "." + (cat.size/1024/1024).toString().split(".")[1].substring(1,2) + " MB|\n";
         output = output + "|**Updated:**|" + (typeof cat.updated != 'undefined' ? cat.updated : "|\n");
         output = output + "|**Updated By:**|" + (typeof cat.updater != 'undefined' ? cat.updater : "|\n");
-        output = output + "|**Description:**|" + cat.commitMessages[0].msg + "\n";
+        output = output + "|**Description:**|" + cat.originalCommitMsg + "\n";
         output = output + "\n";
         output = output + "##### Updates:\n";
         output = output + "| Date  | Committer | Description |\n";
@@ -913,12 +913,12 @@ function uploadCatalog(job)
         repo:job.config.targetRepo,
         path:"keynote-catalog.md"}
     ).then(function(err,res){
-        log("Found Markdown Catalog" + err.sha, job);
+        logger.log("Found Markdown Catalog" + err.sha, job);
 
         job.github.repos.updateFile({owner:job.config.owner, repo:job.config.targetRepo, path:"keynote-catalog.md",message:job.config.commitMsg,content:b64content,sha:err.sha})
             .then(function(err,res)
             {
-                log("Markdown catalog updated", job,"Finishing");
+                logger.log("Markdown catalog updated", job,"Finishing");
                 delete job.catalog;
                 delete job.markdownCatalog;
                 cleanup(job);
@@ -927,7 +927,7 @@ function uploadCatalog(job)
         job.github.repos.createFile({owner:job.config.owner,repo:job.config.targetRepo,path:"keynote-catalog.md",message:job.config.commitMsg,content:b64content})
             .then(function(err,res)
             {
-                log("Markdown catalog uploaded", job,"Finishing");
+                logger.log("Markdown catalog uploaded", job,"Finishing");
                 delete job.catalog;
                 delete job.markdownCatalog;
                 cleanup(job);
