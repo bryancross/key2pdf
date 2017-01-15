@@ -99,8 +99,8 @@ to your computer behind NAT or a firewall:
  `Session Status                online`<br>                                            
  `Version                       2.1.18`<br>                                            
  `Region                        United States (us)`<br>                                
- `Web Interface                 http://127.0.0.1:4040`   |------<-- Configure your webhook with this URL<br>                             
- `Forwarding                    `**`https://d9036a49.ngrok.io`**` -> localhost:3000`<br>         
+ `Web Interface                 http://127.0.0.1:4040`   <br>                             
+ `Forwarding                    `**`https://d9036a49.ngrok.io`**` -> localhost:3000` <---Configure your webhook with this URL<br>         
 <br>                                                                                 
  `Connections                   ttl     opn     rt1     rt5     p50     p90`<br>       
                                `360     0       0.00    0.00    73.83   151.24`<br>   
