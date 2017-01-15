@@ -121,8 +121,8 @@ If `key2pdf` launches successfully you'll see the following on the command line:
 ##### Parameters
 |Name|Type|Description|
 |----|----|-----------|
-|url <required> |string|Url to either a specific file in GitHub, or a repository, as explained below|
-|options <optional|object|one or more parameters using keys from job-template.json.
+|url *required* |string|Url to either a specific file in GitHub, or a repository, as explained below|
+|options *optional*|object|one or more parameters using keys from job-template.json.
 
 The `url` can point to a specific file on a specific branch, in which case only the specified file will be converted:
 
