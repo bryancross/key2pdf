@@ -1,0 +1,39 @@
+[
+  {
+    "path": "deck10.key",
+    "bloburl": "https://api.github.com/repos/bryancross/testrepo/git/blobs/bd4c38018e26e3613cf94a0b636cbedbdc455d0e",
+    "sha": "bd4c38018e26e3613cf94a0b636cbedbdc455d0e",
+    "size": 1422258,
+    "url": "https://api.github.com/bryancross/testrepo/blob/master/deck10.key",
+    "PDFurl": "https://api.github.com/bryancross/testrepo/blob/master/deck10.key.pdf",
+    "commitDate": "2017-01-14T05:11:56Z",
+    "originalCommitMsg":"This is the first commit message",
+    "commitMessages": [
+      {
+        "commitDate": "2017-01-14T05:11:56Z",
+        "msg": "Auto committed by key2pdf"
+      },
+      {
+        "commitDate": "2017-01-14T05:13:44Z",
+        "msg": "Auto committed by key2pdf"
+      }
+    ],
+    "updated": "2017-01-14T05:13:44Z"
+  },
+  {
+    "path": "bat/deck2.key",
+    "bloburl": "https://api.github.com/repos/bryancross/testrepo/git/blobs/e814e796a18d9a1d865c49ef320919265a156ca1",
+    "sha": "e814e796a18d9a1d865c49ef320919265a156ca1",
+    "size": 1420834,
+    "url": "https://api.github.com/bryancross/testrepo/blob/master/bat/deck2.key",
+    "PDFurl": "https://api.github.com/bryancross/testrepo/blob/master/bat/deck2.key.pdf",
+    "commitDate": "2017-01-14T05:13:44Z",
+    "originalCommitMsg":"This is the first commit message",
+    "commitMessages": [
+      {
+        "commitDate": "2017-01-14T05:13:44Z",
+        "msg": "Auto committed by key2pdf"
+      }
+    ]
+  }
+]
