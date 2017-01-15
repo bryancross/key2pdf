@@ -146,7 +146,7 @@ var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, 
 {
     logger.log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
     commit.commits.splice(commitIndex.array2index,1);
-} 
+}
 
 //Are there any commits left?
     if (commit.commits.length === 0)

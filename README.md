@@ -83,7 +83,28 @@ match your environment.  The only edits you'll need to make to run are in the `j
 | `debug` | If true, create the node-github API instance with `debug=true`.  Otherwise false. |
 | `jobsLimit` | Maximum number of completed jobs to keep in memory |
 
+###Using ngrok to proxy webhooks to your laptop
 
+If you are using a computer You can use [ngrok](https://ngrok.com/) to quickly and easy setup a proxy server to redirect webhooks from GitHub.com
+to expose your computer behind NAT or a firewall:
+ 
+ 1. Install ngrok
+ 2. Run tunnel.sh
+ 
+ ngrok generates output showing your temporary public internet URL.`  <br>
+ <br>
+ `ngrok by @inconshreveable                                       (Ctrl+C to quit)`<br>
+<br>                                                                                 
+ `Session Status                online`<br>                                            
+ `Version                       2.1.18`<br>                                            
+ `Region                        United States (us)`<br>                                
+ `Web Interface                 http://127.0.0.1:4040`<br>                             
+ `Forwarding                    __https://d9036a49.ngrok.io__ -> localhost:3000` <-- Configure your webhook with this URL <br>         
+<br>                                                                                 
+ `Connections                   ttl     opn     rt1     rt5     p50     p90`<br>       
+                               `360     0       0.00    0.00    73.83   151.24`<br>   
+Note that this URL will change every time you launch ngrok, so be sure to reconfigure your webhook when you restart it.                               
+                               
 ## Use
 
 Run `script/server.js`
