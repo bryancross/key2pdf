@@ -22,7 +22,7 @@ var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
 var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); //https://github.com/date-fns/date-fns
 var jobs = [];
-
+var gDriveUpload = require('./gdrive');
 
 
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
@@ -516,12 +516,23 @@ function convertKeynote(keynote, path, job) {
         }))
         .pipe(fs.createWriteStream(path + '.pdf'))
         .on('finish', () => {
-        logger.log("Conversion of " +keynote.path + " complete", job);
-    createNewBlobFromFile(path, keynote, job);
-                    })
-        .on('error', function(err) {
+          logger.log("Conversion of " + keynote.path + " complete", job);
+          logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
 
-        logger.log("Conversion of " +keynote.path + " failed", job, "Conversion failure for: " +path);
+          gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" })
+
+          // I have a timeout here to make sure the API calls from Google respond.
+          // Will remove when ready to 🚢
+          setTimeout(function () { createNewBlobFromFile(path, keynote, job) }, 10000);
+        })
+        .on('error', function(err) {
+          logger.log("Conversion of " + keynote.path + " failed", job, "Conversion failure for: " +path);
+
+          // This is only here to test uploading even after hitting API Rate Limits from CloudConvert
+          // Same function call from 👆 `.on('finish')`
+          // Will remove when ready to 🚢
+          // gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" })
+
         //Retry.  Need to figure out a way to limit this...
         if(job.hasOwnProperty("retry" + keynote.sha))
         {
@@ -547,6 +558,7 @@ function createNewBlobFromFile(path, keynote, job) {
 
     logger.log("Creating new Blob for " + keynote.path + ".pdf", job);
     path.replace(" ","_");
+
     //Could not figure out a native node/JS solution for this.  The documented functions didn't work
     //So, we just use the shell tools to base 64 encode the PDF file.
     exec("base64 -i " + path + ".pdf" + " -o " + path + ".pdf.64", function (error, stdout, stderr) {
