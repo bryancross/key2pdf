@@ -6,7 +6,7 @@
 "use strict";
 var logger = require('./lib/logger.js');
 var catalog = require('./lib/catalog');
-var cleanup = require('./lib/cleanup');
+var cleanup = require('./lib/cleanup.js');
 var arrayUtil = require('./lib/arrayUtil.js');
 var b64 = require('js-base64').Base64;
 var crypto = require('crypto');
@@ -270,7 +270,7 @@ dispatcher.onPost('/convert', function (req, res) {
             res.writeHead(406, {'Content-Type': 'text/plain'});
             res.end('Error initializing' + err.message);
             logger.log("Error initializing: " + err.message, job, "Failed", err);
-            cleanup(job);
+            cleanup.cleanup(job);
         }
     }
 });
@@ -317,7 +317,7 @@ function createTempDir(job)
     mkdirp(job.tempDir, function (err) {
         if (err != null) {
             logger.log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
-            cleanup(job);
+            cleanup.cleanup(job);
         }
 
     });
@@ -401,7 +401,7 @@ function convertFilesForBranch(job) {
                 if (tree.length === 0 && job.config.hasOwnProperty("filePath"))
                 {
                     logger.log("No file found in repository for path: " + job.config.filePath, job, "Failed", {msg:"No file found in repository for path: " + job.config.filePath});
-                    cleanup(job);
+                    cleanup.cleanup(job);
                     return;
                 }
                 //otherwise go get the files
@@ -412,7 +412,7 @@ function convertFilesForBranch(job) {
         //bad credentials.  I really feel like it should be...
             .catch(function (err) {
                 logger.log("Error in convertFiles: " + err.message, job, "Failed", err);
-                cleanup(job);
+                cleanup.cleanup(job);
             })
     })
 }
@@ -468,7 +468,7 @@ function getFiles(tree, job) {
     if(!keynotesFound)
     {
         logger.log("No keynote files found", job, "Complete");
-        cleanup(job);
+        cleanup.cleanup(job);
     }
 }
 
@@ -561,7 +561,7 @@ function createNewBlobFromFile(path, keynote, job) {
 
     //Could not figure out a native node/JS solution for this.  The documented functions didn't work
     //So, we just use the shell tools to base 64 encode the PDF file.
-    exec("base64 -i " + path + ".pdf" + " -o " + path + ".pdf.64", function (error, stdout, stderr) {
+   exec("base64 -i " + path + ".pdf" + " -o " + path + ".pdf.64", function (error, stdout, stderr) {
         if (error !== null) {
             logger.log('Error writing out base64: ' + error, job);
             logger.log('stdout: ' + stdout, job);
@@ -692,9 +692,7 @@ function createNewTree(job) {
                                     logger.log("HEAD ref for branch " + job.config.targetBranch + " updated: " + err.object.sha, job, "Success");
                                     //Cleanup by deleting the temp directory and exit
                                     //update the catalog.  Gotta make this asynch...
-                                    updateCatalog(job, function(job){cleanup(job)});
-
-
+                                    catalog.updateCatalog(job);
                                 })
                                 .catch(function (err, res) {
                                         //The only error I've seen is when commits get out of order (not a fast-forward commit)
@@ -716,240 +714,4 @@ function createNewTree(job) {
         })
     });
 
-}
-
-function cleanup(job) {
-    cleanup.cleanup(job);
-    return;
-    if (job.config.deleteTempDir) {
-        exec("rm -rf " + job.tempDir, function (error, stdout, stderr) {
-            if (error !== null) {
-                logger.log('Error writing out base64: ' + error, job);
-                logger.log('stdout: ' + stdout, job);
-                logger.log('stderr: ' + stderr, job);
-            }
-            else {
-                logger.log("Temporary directory deleted", job);
-            }
-        })
-    }
-
-    job.endTime = format(new Date());
-    job.duration = differenceInMilliseconds(parse(job.endTime), parse(job.startTime)) / 1000;
-
-
-    //Clean up the log by deleting redundant/unnecessary nodes from the job object
-    delete job.keynoteFiles;
-    delete job.github;
-
-
-
-    //write out log file
-    fs.writeFile('./log/' + job.jobID + ".json", JSON.stringify(job));
-
-    //don't let the jobs array grow too much...
-
-    if(jobs.length > job.jobsLimit)
-    {
-        jobs.splice(job.jobsLimit,1);
-    }
-
-
-    //execute the callback
-    if(!job.config.callback)
-    {
-        return;
-    }
-
-    var callbackURLComps = job.config.callback.split('/');
-    var hostPort = callbackURLComps[2].split(':');
-    var options = {
-        hostname: hostPort[0],
-        port: hostPort[1],
-        path: '/' + callbackURLComps[3],
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    };
-
-    var req = http.request(options, function(res)
-    {
-        res.setEncoding('utf8');
-        res.on('data', function (body) {
-            //logger.log('Body: ' + body);
-        });
-    });
-    req.on('error', function(e) {
-        logger.log('Error executing callback: ' + e.message);
-    });
-// write data to request body
-    req.write(JSON.stringify(job));
-    req.end();
-    logger.log("Callback executed");
-
-}
-
-/*
-function log(msg, job, status, error) {
-    var datestamp = format(new Date());
-
-    if(job)
-    {
-        if(status)
-        {
-            job.status = status;
-        }
-        job.msgs.push({"time": datestamp, "msg": msg});
-        if(error)
-        {
-            job.errorMessage = error.message;
-            job.errors.push(error.message);
-        }
-    }
-    console.logger.log(datestamp + ":    " + msg);
-
-}
-
-*/
-function updateCatalog(job) {
-    catalog.updateCatalog(job, cleanup);
-    return;
-    job.github.repos.getContent({
-            owner: job.config.owner,
-            repo: job.config.targetRepo,
-            path: "keynote-catalog.json"
-        }
-    ).then(function (err, res) {
-        logger.log("Got keynote-catalog.json: " + err.sha, job);
-        var cat = b64.decode(err.content);
-        job.catalog = JSON.parse(cat);
-        job.catalog.sha = err.sha;
-        updateJSONCatalog(job);
-    }).catch(function (err) {
-        logger.log("error downloading keynote-catalog.json",job,"Updating catalog", err);
-        job.catalog = [];
-        job.catalog.sha = "";
-        updateJSONCatalog(job);
-    })
-}
-
-function updateJSONCatalog(job) {
-    var catEntry = null;
-    if(job.catalog.sha === "")
-    {
-        job.catalog = new Array();
-    }
-    job.files.forEach(function (keynote) {
-        var index = arrayUtil.findValueInArray(job.catalog, keynote.path, "path");
-        //Make a new entry
-        if (!index && index != 0) {
-            catEntry = new Object();
-            //catEntry = require("../config/catalog-entry-template.json");
-            catEntry.path = keynote.path;
-            catEntry.bloburl = keynote.url
-            catEntry.sha = keynote.sha;
-            catEntry.size = keynote.size;
-            catEntry.url = "https://" + (job.config.targetHost != 'api.github.com' ? job.config.targetHost : job.config.targetHost.substring(4)) + "/" + job.config.owner + "/" + job.config.targetRepo + "/blob/" + job.config.targetBranch + "/" + keynote.path
-            catEntry.PDFurl = catEntry.url + ".pdf"
-            catEntry.committer = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username;
-            catEntry.commitDate = typeof job.config.pushCommit === 'undefined' ? job.newCommit.committer.date : job.config.pushCommit.head_commit.timestamp;
-            catEntry.originalCommitMsg = typeof job.config.pushCommit === 'undefined' ? job.newCommit.message : job.config.pushCommit.head_commit.message;
-            catEntry.commitMessages = [{commitDate:catEntry.commitDate,committer:catEntry.committer,msg:catEntry.originalCommitMsg}];
-            job.catalog.push(catEntry);
-        }
-        else
-        //Add commit message to existing entry
-        {
-            job.catalog[index].size = keynote.size;
-            job.catalog[index].sha = keynote.sha
-            job.catalog[index].updatedBy = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username ;
-            job.catalog[index].updated = typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.date : job.config.pushCommit.head_commit.timestamp;
-            job.catalog[index].commitMessages.push({
-                commitDate: typeof job.config.pushCommit === 'undefined' ? job.newCommit.committer.date : job.config.pushCommit.head_commit.timestamp
-                , committer: typeof job.config.pushCommit === 'undefined' ? job.newCommit.author.name : job.config.pushCommit.head_commit.author.username
-                , msg: typeof job.config.pushCommit === 'undefined' ? job.newCommit.message : job.config.pushCommit.head_commit.message
-            })
-        }
-    })
-    var catContent = b64.encode(JSON.stringify(job.catalog));
-    if(typeof job.catalog.sha === 'undefined' || job.catalog.sha === "")
-    {
-
-        job.github.repos.createFile({owner:job.config.owner,repo:job.config.targetRepo,path:"keynote-catalog.json",message:job.config.commitMsg,content:catContent})
-            .then(function(err, res)
-            {
-                updateMarkdownCatalog(job);
-            })
-    }
-    else
-    {
-        job.github.repos.updateFile({owner:job.config.owner, repo:job.config.targetRepo, path:"keynote-catalog.json",message:job.config.commitMsg,content:catContent,sha:job.catalog.sha})
-            .then(function(err,res)
-            {
-                updateMarkdownCatalog(job);
-            })
-    }
-
-}
-
-function updateMarkdownCatalog(job)
-{
-    var output = "";
-    job.catalog.forEach(function(cat)
-    {
-        output = output + "### [" + cat.path + "](" + cat.url + ")\n" ;
-        output = output + "#### [PDF rendition](" + cat.PDFurl + ")\n";
-        output = output + "|        |        |\n";
-        output = output + "|--------|--------|\n";
-        output = output + "|**Author:**|" + cat.committer + "|\n";
-        output = output + "|**Date:**|" + cat.commitDate + "|\n";
-        output = output + "|**Size:**|" + (cat.size/1024/1024).toString().split(".")[0] + "." + (cat.size/1024/1024).toString().split(".")[1].substring(1,2) + " MB|\n";
-        output = output + "|**Updated:**|" + (typeof cat.updated != 'undefined' ? cat.updated : "|\n");
-        output = output + "|**Updated By:**|" + (typeof cat.updater != 'undefined' ? cat.updater : "|\n");
-        output = output + "|**Description:**|" + cat.originalCommitMsg + "\n";
-        output = output + "\n";
-        output = output + "##### Updates:\n";
-        output = output + "| Date  | Committer | Description |\n";
-        output = output + "|-------|-----------|-------------|\n"
-
-        cat.commitMessages.forEach(function(msg)
-        {
-            output = output + "|" + msg.commitDate + "|";
-            output = output + msg.committer + "|";
-            output = output + msg.msg + "|\n";
-        });
-    });
-    job.markdownCatalog = output;
-    uploadCatalog(job)
-}
-
-function uploadCatalog(job)
-{
-    var b64content = b64.encode(job.markdownCatalog)
-    job.github.repos.getContent({owner:job.config.owner,
-        repo:job.config.targetRepo,
-        path:"keynote-catalog.md"}
-    ).then(function(err,res){
-        logger.log("Found Markdown Catalog" + err.sha, job);
-
-        job.github.repos.updateFile({owner:job.config.owner, repo:job.config.targetRepo, path:"keynote-catalog.md",message:job.config.commitMsg,content:b64content,sha:err.sha})
-            .then(function(err,res)
-            {
-                logger.log("Markdown catalog updated", job,"Finishing");
-                delete job.catalog;
-                delete job.markdownCatalog;
-                cleanup(job);
-            })
-    }).catch(function(err){
-        job.github.repos.createFile({owner:job.config.owner,repo:job.config.targetRepo,path:"keynote-catalog.md",message:job.config.commitMsg,content:b64content})
-            .then(function(err,res)
-            {
-                logger.log("Markdown catalog uploaded", job,"Finishing");
-                delete job.catalog;
-                delete job.markdownCatalog;
-                cleanup(job);
-            })
-
-    })
 }
