@@ -5,7 +5,8 @@
 
 "use strict";
 var logger = require('./lib/logger.js');
-//var catalog = require('./lib/catalog');
+var catalog = require('./lib/catalog');
+var cleanup = require('./lib/cleanup');
 var arrayUtil = require('./lib/arrayUtil.js');
 var b64 = require('js-base64').Base64;
 var crypto = require('crypto');
@@ -681,6 +682,7 @@ function createNewTree(job) {
                                     //update the catalog.  Gotta make this asynch...
                                     updateCatalog(job, function(job){cleanup(job)});
 
+
                                 })
                                 .catch(function (err, res) {
                                         //The only error I've seen is when commits get out of order (not a fast-forward commit)
@@ -705,6 +707,8 @@ function createNewTree(job) {
 }
 
 function cleanup(job) {
+    cleanup.cleanup(job);
+    return;
     if (job.config.deleteTempDir) {
         exec("rm -rf " + job.tempDir, function (error, stdout, stderr) {
             if (error !== null) {
@@ -797,6 +801,8 @@ function log(msg, job, status, error) {
 
 */
 function updateCatalog(job) {
+    catalog.updateCatalog(job, cleanup);
+    return;
     job.github.repos.getContent({
             owner: job.config.owner,
             repo: job.config.targetRepo,
