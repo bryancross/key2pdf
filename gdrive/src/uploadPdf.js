@@ -16,7 +16,8 @@ function uploadPDF(auth, file) {
   service.files.create({
     resource: {
       name: file.name,
-      mimeType: 'application/pdf'
+      mimeType: 'application/pdf',
+      parents: ['0Bx7UhUK81Pz1SE9YZ1JUR0FPbmc']
     },
     media: {
       mimeType: 'application/pdf',
