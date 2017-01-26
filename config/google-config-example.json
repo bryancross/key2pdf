@@ -1,3 +1,4 @@
 {
-  "UrlApiKey": "<your API key>"
+  "UrlApiKey": "<your API key>",
+  "UploadFolder": "<Google Drive folder ID>"
 }
