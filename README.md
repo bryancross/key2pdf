@@ -7,7 +7,7 @@ Calls to the `/convert` endpoint must include a `url` parameter.  Depending on t
  - Traverse a specified repository, finding all keynote files, converting them to PDF, and then uploading the resulting PDFs back into the repository
  - Find and convert a single keynote file
 
-The `pushhook` endpoint is designed to respond to [GitHub Webhook](https://developer.github.com/webhooks/) push events.
+The `pushhook` endpoint is designed to respond to [GitHub Webhook](https://developer/.github.com/webhooks/) push events.
 
 Converted PDFs are committed to GitHub in the same path as their source keynote files.
 
@@ -85,7 +85,7 @@ match your environment.  The only edits you'll need to make to run are in the `j
 
 ## Use
 
-Run `script/server.js`
+Run `script/server.sh`
 
 If `key2pdf` launches successfully you'll see the following on the command line:
 
