@@ -8,6 +8,7 @@ var tcolorReset = '\x1b[0m';
 var shortenUrl = require('./shortenUrl');
 
 function uploadPDF(auth, file) {
+  var config = require('../config/google-config.json');
   var service = google.drive({ version: 'v3', auth: auth });
   var spinner = new Spinner('Uploading PDF.. %s');
   // spinner.setSpinnerString('|/-\\');
@@ -16,7 +17,8 @@ function uploadPDF(auth, file) {
   service.files.create({
     resource: {
       name: file.name,
-      mimeType: 'application/pdf'
+      mimeType: 'application/pdf',
+      parents: [config.UploadFolder]
     },
     media: {
       mimeType: 'application/pdf',
