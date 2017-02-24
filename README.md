@@ -7,11 +7,11 @@ Calls to the `/convert` endpoint must include a `url` parameter.  Depending on t
  - Traverse a specified repository, finding all keynote files, converting them to PDF, and then uploading the resulting PDFs back into the repository
  - Find and convert a single keynote file
 
-The `pushhook` endpoint is designed to respond to GitHub webhook push events.
+The `pushhook` endpoint is designed to respond to [GitHub Webhook](https://developer/.github.com/webhooks/) push events.
 
 Converted PDFs are committed to GitHub in the same path as their source keynote files.
 
-###Keynote Catalog
+### Keynote Catalog
 
 Two catalog of PDFs are maintained in the root of the directory:
 
@@ -45,26 +45,51 @@ Conversion is performed by the [CloudConvert API](https://cloudconvert.com/api).
 Clone the repository, then run
 `script/bootstrap.sh`
 
+### Example Catalog
+
+### [deck10.key](https://api.github.com/bryancross/testrepo/blob/master/deck10.key)
+#### [PDF rendition](https://api.github.com/bryancross/testrepo/blob/master/deck10.key.pdf)
+|        |        |
+|--------|--------|
+|**Author:**|undefined|
+|**Date:**|2017-01-14T05:11:56Z|
+|**Size:**|1.5 MB|
+|**Updated:**|2017-01-14T05:13:44Z|**Updated By:**|Jane Doe|
+|**Description:**|Auto committed by key2pdf|
+
+##### Updates:
+| Date  | Committer | Description |
+|-------|-----------|-------------|
+|2017-01-14T05:11:56Z|John Doe|Auto committed by key2pdf|
+|2017-01-14T05:13:44Z|Jane Doe|Auto committed by key2pdf|
+
+Conversion is performed by the [CloudConvert API](https://cloudconvert.com/api).  You'll need a CloudConvert API token in order to use the service
+
+## Setup
+Clone the repository, then run `script/bootstrap.sh`
+
 ## Configuration
 The bootstrap script creates the `/job` and `/log` directories.  You'll need to edit the values in `config/job-template.json` to
 match your environment.  The only edits you'll need to make to run are in the `job.config` element:
 
-`{`<br>
-&nbsp;&nbsp;&nbsp;   `"GitHubPAT":"<yourPAT>"` <br>
-&nbsp;&nbsp;&nbsp;   `,"targetRepo":"testrepo"` <br>
-&nbsp;&nbsp;&nbsp;   `,"targetBranch":"master"` <br>
-&nbsp;&nbsp;&nbsp;`,"targetHost":"github.com"` <br>
-&nbsp;&nbsp;&nbsp;   `,"user":"bryancross"` <br>
-&nbsp;&nbsp;&nbsp;   `,"authType":"oauth"` <br>
-&nbsp;&nbsp;&nbsp;  `,"cloudConvertAPIToken":"<your CloudConvert API token>"` <br>
-&nbsp;&nbsp;&nbsp;  `,"commitMsg":"Auto committed by key2pdf"` <br>
-&nbsp;&nbsp;&nbsp;  `,"deleteTempDir":true` <br>
-&nbsp;&nbsp;&nbsp;  `,"userAgent":"key2pdf"` <br>
-&nbsp;&nbsp;&nbsp;  `,"listenOnPort":3000` <br>
-&nbsp;&nbsp;&nbsp;     `,"callback": ""` <br>
-&nbsp;&nbsp;&nbsp;      `,"debug":false` <br>
-&nbsp;&nbsp;&nbsp;      `,"jobsLimit":1000` <br>
-`}`
+```json
+{
+  "GitHubPAT":"<yourPAT>",
+  "targetRepo":"testrepo",
+  "targetBranch":"master",
+  "targetHost":"github.com",
+  "user":"bryancross",
+  "authType":"oauth",
+  "cloudConvertAPIToken":"<your CloudConvert API token>",
+  "commitMsg":"Auto committed by key2pdf",
+  "deleteTempDir":true,
+  "userAgent":"key2pdf",
+  "listenOnPort":3000,
+  "callback": "",
+  "debug":false,
+  "jobsLimit":1000
+}
+```
 
 | Parameter | Notes |
 |-----------|-------|
@@ -110,7 +135,7 @@ Note that this URL will change every time you launch ngrok, so be sure to reconf
 
 ## Use
 
-Run `script/server.js`
+Run `script/server.sh`
 
 If `key2pdf` launches successfully you'll see the following on the command line:
 
@@ -250,14 +275,14 @@ of your job.
 `{"msg":"Conversion request recieved","jobID":"947f0f5d8cd92e414ac4056365ffe40cadaa75a9"}`
 
 
-##Logging
+#### Logging
 The job object is written out to the `/log` directory.  The filename is the JobID.
 
-##Temporary Directories
+#### Temporary Directories
 Job data are stored in a directory in the `/job` directory.  The directory name is the JobID.  If `config.deleteTempDir` = `true`,
  this directory will be deleted when the conversion job is complete.
 
-##Testing
+## Testing
 
 You can simulate requests to `key2pdf` endpoints.  
 
@@ -265,24 +290,25 @@ Run `script/testConvert.sh` to test the `convert` endpoint.  This script will fi
 parameters configured in `test/test-params.json`.  Each of the keys in the `testCases` array replace the matching
 key in `key2pdf`s global config.  The host, port, and endpoint determine where the HTTP POST request is sent.
 
-`{` <br>
-&nbsp;&nbsp;&nbsp; `   "host":"http://localhost"` <br>
-&nbsp;&nbsp;&nbsp; `  ,"port":3000` <br>
-&nbsp;&nbsp;&nbsp;`  ,"endpoint":"convert"` <br>
-&nbsp;&nbsp;&nbsp;`  ,"testCases":[` <br>
-&nbsp;&nbsp;&nbsp;`    {` <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`       "GitHubPAT":"<your properly scoped PAT>"` <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`      ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck1.key"` <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`      ,"callback":"http://localhost:3001/status"` <br>
-&nbsp;&nbsp;&nbsp;`    }` <br>
-&nbsp;&nbsp;&nbsp;`    ,  {` <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`    "GitHubPAT":"<your properly scoped PAT>"` <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`  ,"url":"https://github.com/bryancross/testrepo/blob/master/foo/deck2.key"` <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`  ,"callback":"http://localhost:3001/status"` <br>
-&nbsp;&nbsp;&nbsp;`  }` <br>
-&nbsp;&nbsp;&nbsp;`  ]` <br>
-`}` <br>
-
+```json
+{
+  "host":"http://localhost",
+  "port":3000,
+  "endpoint":"convert",
+  "testCases":[
+    {
+      "GitHubPAT":"<your properly scoped PAT>",
+      "url":"https://github.com/bryancross/testrepo/blob/master/foo/deck1.key",
+      "callback":"http://localhost:3001/status"
+    },
+    {
+    "GitHubPAT":"<your properly scoped PAT>",
+    "url":"https://github.com/bryancross/testrepo/blob/master/foo/deck2.key",
+    "callback":"http://localhost:3001/status"
+    }
+  ]
+}
+```
 Run `script/testPushhook.sh` to test the `pushhook` endpoint.  This script sends a request to the endpoint.  The payload
  is the contents of `test/test-commit.json`.  
 
@@ -313,3 +339,4 @@ receives HTTP POST events and prints certain components of them to the console.
 - Use [this wizard](https://console.developers.google.com/flows/enableapi?apiid=urlshortener) to enable the URL Shortener API
 - Create an [API Key](https://support.google.com/cloud/answer/6158862) for the URL Shortener API
  - Store this value in `./config/google-config.json` under the `UrlApiKey`
+
