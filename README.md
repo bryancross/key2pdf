@@ -19,6 +19,32 @@ Two catalog of PDFs are maintained in the root of the directory:
  - `keynote-catalog.md`: Formatted markdown document with links to the source keynote and PDF files, as well as other metadata.
    Descriptions are derived from commit messages.
 
+   ###Example Catalog
+
+
+
+   > ### [deck10.key](https://api.github.com/bryancross/testrepo/blob/master/deck10.key)
+   > #### [PDF rendition](https://api.github.com/bryancross/testrepo/blob/master/deck10.key.pdf)
+   > |        |        |
+   > |--------|--------|
+   > |**Author:**|undefined|
+   > |**Date:**|2017-01-14T05:11:56Z|
+   > |**Size:**|1.5 MB|
+   > |**Updated:**|2017-01-14T05:13:44Z|**Updated By:**||
+   > |**Description:**|Auto committed by key2pdf
+   >
+   > ##### Updates:
+   > | Date  | Committer | Description |
+   > |-------|-----------|-------------|
+   > |2017-01-14T05:11:56Z|undefined|Auto committed by key2pdf|
+   > |2017-01-14T05:13:44Z|undefined|Auto committed by key2pdf|
+
+Conversion is performed by the [CloudConvert API](https://cloudconvert.com/api).  You'll need a cloudconvert API token in order to use the service
+
+## Setup
+Clone the repository, then run
+`script/bootstrap.sh`
+
 ### Example Catalog
 
 ### [deck10.key](https://api.github.com/bryancross/testrepo/blob/master/deck10.key)
@@ -73,15 +99,39 @@ match your environment.  The only edits you'll need to make to run are in the `j
 | `targetHost` | Host where `targetRepo` resides.  Just the hostname, don`t include `/api/v3` etc.|
 | `user` | GitHub user corresponding to `GitHubPAT`|
 | `authType` | Currently just `oauth`|
-| `cloudConvertAPIToken` | API token allowing access to [CloudConvert](http://www.cloudconvert.com)|
+| `cloudConvertAPIToken` | API token allowing access to [cloudconvert.com](http://www.cloudconvert.com)|
 | `commitMsg` | Commit message for commits of converted PDF files |
-| `deleteTempDir` | If true, delete the temporary working directory on exit.  If false, don't.  Useful for seeing what's actually coming out of the repo or CloudConvert|
+| `deleteTempDir` | If true, delete the temporary working directory on exit.  If false, don't.  Useful for seeing what's actually coming out of the repo or cloudconvert|
 | `userAgent` | Value for the `user-agent` header sent to GitHub when the node-github API is initialized |
 | `listenOnPort` | Port on which the server will listen |
 | `callback` | endpoint URL to be called when a conversion job completes |
 | `debug` | If true, create the node-github API instance with `debug=true`.  Otherwise false. |
 | `jobsLimit` | Maximum number of completed jobs to keep in memory |
 
+###Using ngrok to proxy webhooks to your laptop
+
+You can use [ngrok](https://ngrok.com/) to quickly and easy setup a proxy server to redirect webhooks from GitHub.com
+to your computer behind NAT or a firewall:
+
+ 1. Install ngrok
+ 2. Run tunnel.sh
+
+ ngrok generates output showing your temporary public internet URL.
+
+
+ `ngrok by @inconshreveable                                       (Ctrl+C to quit)`<br>
+<br>                                                                                 
+ `Session Status                online`<br>                                            
+ `Version                       2.1.18`<br>                                            
+ `Region                        United States (us)`<br>                                
+ `Web Interface                 http://127.0.0.1:4040`   <br>                             
+ `Forwarding                    `**`https://d9036a49.ngrok.io`**` -> localhost:3000` <---Configure your webhook with this URL<br>         
+<br>                                                                                 
+ `Connections                   ttl     opn     rt1     rt5     p50     p90`<br>       
+                               `360     0       0.00    0.00    73.83   151.24`<br>   
+
+
+Note that this URL will change every time you launch ngrok, so be sure to reconfigure your webhook when you restart it.                               
 
 ## Use
 
@@ -96,7 +146,8 @@ If `key2pdf` launches successfully you'll see the following on the command line:
 ##### Parameters
 |Name|Type|Description|
 |----|----|-----------|
-|url  |string|Url to either a specific file in GitHub, or a repository, as explained below|
+|url *required* |string|Url to either a specific file in GitHub, or a repository, as explained below|
+|options *optional*|object|one or more parameters using keys from job-template.json.
 
 The `url` can point to a specific file on a specific branch, in which case only the specified file will be converted:
 
@@ -114,7 +165,7 @@ The server expects URLs to be constructed as they would be if you copied the URL
 
 You can replace any value in the `job.config` by passing it in the HTTP request, e.g.,
 
-`var options = "{GitHubPAT:<somepat>"` <br>
+`var options = {url:"your target URL",GitHubPAT:"<somepat>"}` <br>
 `var req = http.request(options, callback);` <br>
 
 However, the components of the URL will be extracted and will overwrite the following `config` elements:
@@ -142,72 +193,68 @@ The endpoint returns JSON containing all status messages generated by
 the conversion process up to the point of the call, as well as the current config parameters, a list of files being converted and, if
 the process has moved far enough, PDF files created and uploaded to GitHub:
 
-```json
-{
-  "jobID": "fba65bc7c2c07f146ef81207748cba179a950fce",
-  "StartTime": "2017-01-08T12:40:32.533-06:00",
-  "msgs": [  // Array of messages emitted by the logger during the conversion run   
-    {
-      "time": "2017-01-08T12:40:32.534-06:00",
-      "msg": "Path: foo/deck1.key"
-    },
-    {
-      "time": "2017-01-08T12:40:32.534-06:00",
-      "msg": "Temp directory: ./job/fba65bc7c2c07f146ef81207748cba179a950fce"
-    },
-    {
-      "time": "2017-01-08T12:40:32.752-06:00",
-      "msg": "Current commit SHA: 8865ec18bbfb563ee80d15213f518f1b6bd48b45"
-    }
-  ],
-  "config": { // The config, as modified by any URLs or parameters passed in
-    "GitHubPAT": "<your properly scoped GitHub PAT>",
-    "targetRepo": "testrepo",
-    "targetBranch": "master",
-    "targetHost": "api.github.com",
-    "owner": "bryancross",
-    "user": "bryancross",
-    "authType": "oauth",
-    "cloudConvertAPIToken": "XXXXXXXXXXXXXXXXXXXXXXXXXX",
-    "commitMsg": "Auto committed by key2pdf",
-    "deleteTempDir": false,
-    "userAgent": "key2pdf",
-    "listenOnPort": 3000,
-    "callback": "http://localhost:3001/status",
-    "debug": false,
-    "filePath": "foo/deck2.key", // The path in the repository converted by this run
-    "pathPrefix": ""
-  },
-  "files": [ // Files identified and sent for conversion
-    {
-      "path": "foo/deck1.key",
-      "mode": "100644",
-      "type": "blob",
-      "sha": "eb1810b784c492d814020a8c0b84e7634e44c4a7",
-      "size": 1404238,
-      "url": "https://api.github.com/repos/bryancross/testrepo/git/blobs/eb1810b784c492d814020a8c0b84e7634e44c4a7"
-    }
-  ],
-  "PDFs": [ // Resulting PDFs committed to the repo
-    {
-      "path": "foo/deck1.key.pdf",
-      "type": "blob",
-      "mode": "100644",
-      "sha": "e920e4bdbaf733383acdbb236a867e8ec3877b6f",
-      "url":"https://api.github.com/repos/bryancross/testrepo/git/blobs/e920e4bdbaf733383acdbb236a867e8ec3877b6f"
-    }
-  ],
-  "errors": [  //Array of any error messages encountered during the conversion run
-    {
-    "errorMessage": "", //The last error message received
-    "status": "Complete",
-    }
-  ],
-  "tempDir": "./job/fba65bc7c2c07f146ef81207748cba179a950fce",
-  "endTime": "2017-01-08T12:40:42.330-06:00",
-  "duration": 9.797
-}
-```
+`{` <br>
+&nbsp;&nbsp;&nbsp;`"jobID": "fba65bc7c2c07f146ef81207748cba179a950fce",` <br>
+&nbsp;&nbsp;&nbsp;`"StartTime": "2017-01-08T12:40:32.533-06:00",` <br>
+&nbsp;&nbsp;&nbsp;`"msgs": [  //Array of messages emitted by the logger during the conversion run` <br>  
+&nbsp;&nbsp;&nbsp;`{` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"time": "2017-01-08T12:40:32.534-06:00",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"msg": "Path: foo/deck1.key"` <br>
+&nbsp;&nbsp;&nbsp;`},` <br>
+&nbsp;&nbsp;&nbsp;`{` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"time": "2017-01-08T12:40:32.534-06:00",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"msg": "Temp directory: ./job/fba65bc7c2c07f146ef81207748cba179a950fce"` <br>
+&nbsp;&nbsp;&nbsp;`},` <br>
+&nbsp;&nbsp;&nbsp;`{` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"time": "2017-01-08T12:40:32.752-06:00",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"msg": "Current commit SHA: 8865ec18bbfb563ee80d15213f518f1b6bd48b45"` <br>
+&nbsp;&nbsp;&nbsp;`},` <br>
+&nbsp;&nbsp;&nbsp;`<<etc>>` <br>
+&nbsp;&nbsp;&nbsp;`],` <br>
+&nbsp;&nbsp;&nbsp;`"config": { //The config, as modified by any URLs or parameters passed in` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"GitHubPAT": "<your properly scoped GitHub PAT>",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"targetRepo": "testrepo",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"targetBranch": "master",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"targetHost": "api.github.com",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"owner": "bryancross",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"user": "bryancross",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"authType": "oauth",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"cloudConvertAPIToken": "O_unX3l0OehzUhKfNOz_fczDugrne7ssX-dlD971NYIaLAD0MIYRxIveRf9KN2HWqvmSt2QwoYWt0ycf5auc7Q",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"commitMsg": "Auto committed by key2pdf",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"deleteTempDir": false,` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"userAgent": "key2pdf",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"listenOnPort": 3000,` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"callback": "http://localhost:3001/status",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"debug": false,` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"filePath": "foo/deck2.key", // The path in the repository converted by this run` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"pathPrefix": ""` <br>
+&nbsp;&nbsp;&nbsp;`},` <br>
+&nbsp;&nbsp;&nbsp;`"files": [ // Files identified and sent for conversion` <br>
+&nbsp;&nbsp;&nbsp;`{` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"path": "foo/deck1.key",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"mode": "100644",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"type": "blob",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"sha": "eb1810b784c492d814020a8c0b84e7634e44c4a7",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"size": 1404238,` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"url":"https://api.github.com/repos/bryancross/testrepo/git/blobs/eb1810b784c492d814020a8c0b84e7634e44c4a7"` <br>
+&nbsp;&nbsp;&nbsp;`}` <br>
+&nbsp;&nbsp;&nbsp;`],` <br>
+&nbsp;&nbsp;&nbsp;`"PDFs": [ // Resulting PDFs committed to the repo` <br>
+&nbsp;&nbsp;&nbsp;`{` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"path": "foo/deck1.key.pdf",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"type": "blob",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"mode": "100644",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"sha": "e920e4bdbaf733383acdbb236a867e8ec3877b6f",` <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`"url":"https://api.github.com/repos/bryancross/testrepo/git/blobs/e920e4bdbaf733383acdbb236a867e8ec3877b6f"` <br>
+&nbsp;&nbsp;&nbsp;`}` <br>
+&nbsp;&nbsp;&nbsp;`],` <br>
+&nbsp;&nbsp;&nbsp;`"errors":[]  //Array of any error messages encountered during the conversion run` <br>
+&nbsp;&nbsp;&nbsp;`"errorMessage:"" //The last error message received` <br>
+&nbsp;&nbsp;&nbsp;`"status": "Complete",` <br>
+&nbsp;&nbsp;&nbsp;`"tempDir": "./job/fba65bc7c2c07f146ef81207748cba179a950fce",` <br>
+&nbsp;&nbsp;&nbsp;`"endTime": "2017-01-08T12:40:42.330-06:00",` <br>
+&nbsp;&nbsp;&nbsp;`"duration": 9.797` <br>
+`}` <br>
 
 ##### `POST http://<host>:<port>/pushhook`
 ##### Parameters
@@ -262,7 +309,6 @@ key in `key2pdf`s global config.  The host, port, and endpoint determine where t
   ]
 }
 ```
-
 Run `script/testPushhook.sh` to test the `pushhook` endpoint.  This script sends a request to the endpoint.  The payload
  is the contents of `test/test-commit.json`.  
 
@@ -271,9 +317,26 @@ Run `script/testPushhook.sh` to test the `pushhook` endpoint.  This script sends
 If you want to test callback functionality, you can run `test/testCallback.sh`.  This launches a simple server that
 receives HTTP POST events and prints certain components of them to the console.
 
-```
-*************************
-2017-01-13T23:13:45.906-06:00
-Callback received for job: 70647654761f47d6dfa9cbc8c33d99521a53852b status: Success
-*************************
-```
+`*************************`
+`2017-01-13T23:13:45.906-06:00`
+`Callback received for job: 70647654761f47d6dfa9cbc8c33d99521a53852b status: Success`
+`*************************`
+
+
+### Upload to Google Drive
+*See [this tutorial](https://developers.google.com/drive/v3/web/quickstart/nodejs) if you're unfamiliar with using the Google Drive API*
+
+- Use [this wizard](https://console.developers.google.com/flows/enableapi?apiid=drive) to enable the Google Drive API on your project
+ - Create and download an [OAuth 2.0 Client ID](https://developers.google.com/identity/protocols/OAuth2)
+ - Store this in the `./gdrive/config` directory as `client_secret.json`
+- The first time you run the server, it will create a token by asking you to authenticate to Google Drive in your default browser. Once the access token is created, it will be stored in your home directory as `~/.credentials/drive-nodejs-uploadPDF.json`
+- If you want to store the files in Google Drive under a specific folder, first create the folder in your web browser like normal. The "Folder ID" will be the last part of the URL when browsing that folder. For example, in `https://drive.google.com/drive/folders/0Bx7Uhsdk81Pz1SE9YZ1JUR0FPbmc`, the Folder ID is `0Bx7Uhsdk81Pz1SE9YZ1JUR0FPbmc`
+- Store this folder ID as the value of the `UploadFolder` key in `./config/google-config.json`
+- The permissions of this folder will determine who else can access the files uploaded by the application.
+- Application permissions are obtained from the OAuth Flow above and are limited to the files it creates through the `drive.file` [Auth Scope](https://developers.google.com/drive/v2/web/scopes).
+
+#### URL Shortener
+- Use [this wizard](https://console.developers.google.com/flows/enableapi?apiid=urlshortener) to enable the URL Shortener API
+- Create an [API Key](https://support.google.com/cloud/answer/6158862) for the URL Shortener API
+ - Store this value in `./config/google-config.json` under the `UrlApiKey`
+

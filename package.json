@@ -33,6 +33,10 @@
     "mkdirp": "^0.5.1",
     "node-github": "0.0.3",
     "rimraf": "^2.5.4",
-    "tmp": "0.0.31"
+    "tmp": "0.0.31",
+    "cli-spinner": "^0.2.5",
+    "google-auth-library": "^0.10.0",
+    "googleapis": "^16.1.0",
+    "request": "^2.79.0"
   }
 }
