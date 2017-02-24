@@ -140,7 +140,16 @@ function updateConfigFromParams(request, job) {
 
 dispatcher.onPost('/pushhook', function (req, res) {
 
+
 var commit = JSON.parse(req.body);
+//Test whether this is actually a commit. If not, reject it.
+if(typeof(commit.head_commit) === "undefined")
+{
+    logger.log("Non-commit event ignored");
+    return;
+}
+
+
 var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, "commitSHA","id");
 
     if(commitIndex || commitIndex === 0)
