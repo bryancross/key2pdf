@@ -237,6 +237,23 @@ var numKeynoteFiles = 0;
 
 });
 
+dispatcher.onPost('/everything', function(req,res) {
+    var body = req.body;
+    console.log("Processing everything request");
+    fs.appendFile('./log/everything.json', JSON.stringify(body));
+    });
+
+
+dispatcher.onPost('/key2pdf', function(req,res) {
+
+    console.log("Args: ", req.body.args);
+    var args = JSON.parse(req.body);
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end("Got it");
+    console.log(args);
+
+});
+
 /**
  *  dispatcher.onPost(request, response) -> null
  *
