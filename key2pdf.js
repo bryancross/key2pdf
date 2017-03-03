@@ -271,6 +271,13 @@ function convert(job)
 {
 
     updateConfigFromURL(job);
+    if(!job.config.commitAfterConvert)
+    {
+        logger.syslog("Output directory created: /output/" + job.jobID);
+        fs.mkdirSync('./output/' + job.jobID);
+    }
+
+
     logger.log("Path: " + job.config.filePath, job, "Processing");
     //All is well, let's go convert!
     //We pass the job object around to preserve state and specific configuration data for each request
@@ -521,9 +528,9 @@ function convertKeynote(keynote, path, job) {
         .pipe(fs.createWriteStream(path + '.pdf'))
         .on('finish', () => {
           logger.log("Conversion of " + keynote.path + " complete", job);
-          logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
           if(job.config.copyToGDrive === "true")
           {
+              logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
               gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" })
           }
           else
@@ -531,10 +538,23 @@ function convertKeynote(keynote, path, job) {
               logger.syslog("Skipping upload to GDrive","Running");
           }
 
+        if(!job.config.commitAfterConvert)
+        {
+            logger.syslog("Skipping commit of new files", "Running");
+            updateKeynoteFileList(null, keynote, job);
+        }
+        else
+        {
+            createNewBlobFromFile(path, keynote, job);
+        }
 
-          // I have a timeout here to make sure the API calls from Google respond.
+
+
+
+    // I have a timeout here to make sure the API calls from Google respond.
           // Will remove when ready to 🚢
-          setTimeout(function () { createNewBlobFromFile(path, keynote, job) }, 10000);
+          //setTimeout(function () { createNewBlobFromFile(path, keynote, job) }, 10000);
+
         })
         .on('error', function(err) {
           logger.log("Conversion of " + keynote.path + " failed", job, "Conversion failure for: " +path);
@@ -596,6 +616,7 @@ function createNewBlobFromFile(path, keynote, job) {
                 .catch(function (err, res) {
                     logger.log("Error creating BLOB for " + path + ": " + err.message, job);
                 });
+            logger.log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
         }
     });
 }
@@ -605,15 +626,27 @@ function createNewBlobFromFile(path, keynote, job) {
 // keynoteFiles array.  When the array is empty, proceed with building the new tree
 
 function updateKeynoteFileList(blob, keynote, job) {
-    logger.log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
 
+
+    var blobSHA = "";
+    var blobURL = ""
     //push the new PDF blob onto our array of PDFs.  This will become the 'tree' element of our new Git tree later
+    if(!blob)
+    {
+        blobSHA = "not committed";
+        blobURL = "not committed";
+    }
+    else
+    {
+        blobSHA = blob.sha;
+        blobURL = "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
+    }
     job.PDFs.push({
         path: keynote.path + ".pdf",
         type: "blob",
         mode: "100644",
-        sha: blob.sha,
-        url: "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
+        sha: blobSHA,
+        url: blobURL
     });
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
@@ -622,25 +655,21 @@ function updateKeynoteFileList(blob, keynote, job) {
     {
         job.keynoteFiles.splice(keyIndex, 1);
     }
-    else
-    {
-        console.logger.log("foo");
-    }
+
 
     //Have we retrieved and converted all the keynotes? If so then it's time to create our new tree
     if (job.keynoteFiles.length === 0) {
-        logger.log("All keynotes converted and new blobs created", job);
         if(job.config.commitAfterConvert === "true")
-        {
-            createNewTree(job);
-        }
+            {
+                logger.log("All keynotes converted and new blobs created", job);
+                createNewTree(job);
+            }
         else
         {
-            logger.syslog("Skipping commit of new files", "Running");
+            logger.log("All keynotes converted", job);
             cleanup.cleanup(job);
         }
-
-    }
+        }
 }
 
 function createNewTree(job) {

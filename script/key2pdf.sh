@@ -41,14 +41,14 @@
 #/
 #/     key2pdf start
 #/
-#/#/  Stop the key2pdf server:
+#/  Stop the key2pdf server:
 #/
 #/      key2pdf stop
 #/
 #/  Convert a single Keynote file.   Output PDF will be copied to /output,
 #/  overwriting any files with the same name:
 #/
-#/      key2pdf --convert-file http://github.com/bryancross/testrepo/deck2.key
+#/      key2pdf --convert-file http://github.com/anorg/repo/blob/master/deck2.key
 #/
 #/  Convert a single Keynote file.   Output PDF will be committed to the source
 #/  repository in the same location and on the same branch as the source Keynote:
