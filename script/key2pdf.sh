@@ -1,29 +1,31 @@
 #!/usr/bin/env bash
 
-#/ Usage: key2pdf.sh cmd <option> <flags>
+#/Usage:  key2pdf.sh cmd <url> <flags>
+#/        key2pdf start
+#/        key2pdf stop
+#/        key2pdf convert-file <url> [--commit-after-convert] [--copy-to-gdrive]
+#/        key2pdf convert-repo <url> [--commit-after-convert] [--copy-to-gdrive]
 #/
-#/ <DESCRIPTION>
+#/  Convert a single keynote file to PDF, or all keynote files in a repository
+#/  to PDF.  Optionally commit the converted PDFs back to GitHub and/or copy
+#/  them to a configured location in Google Drive
 #/
-#/ CONFIGURATION VARIABLES (set in ./config/job-template.json):
+#/ COMMANDS:
 #/
-#/  VAR                       DESC
-#/
-#/ OPTIONS:
 #/  start	Start the key2pdf server
 #/
 #/  stop	Stop the key2pdf server
 #/
-#/  process-webhooks	    If present, key2pdf will respond to webhooks on the
-#/                          /pushhook endpoint
+#/  convert-file            Convert a single file
 #/
-#/  param-file              Path to a JSON file containing one or more keys
-#/                          whose values will overwrite matching keys in
-#/                          job-template.json
+#/  convert-repo            Convert all files in a repository
 #/
-#/  keynote_url             URL to a single Keynote file to be converted
 #/
-#/  repository_url          URL to a repository. All keynotes found in the
-#/                          repository on the specified branch will be converted
+#/ OPTIONS:
+#/
+#/  url                     URL to a single Keynote file to be converted, or
+#/                          to a branch in a repository to be converted.
+#/ FLAGS:
 #/
 #/  commit-after-convert    If present, converted PDF files will be committed to
 #/                          the source repo in the same location and on the
@@ -32,11 +34,6 @@
 #/  copy-to-gdrive          If present, converted PDF files will be uploaded to
 #/                          Google Drive
 #/
-#/  branch                  If present, key2pdf will search for the the
-#/                          specified Keynote file(s) on the specified branch.
-#/                          If not present, key2pdf will use the default branch
-#/                          for the repository
-#/
 #/ EXAMPLES:
 #/
 #/  Start the key2pdf server.  Do not respond to webhook events.  Useful for
@@ -44,16 +41,7 @@
 #/
 #/     key2pdf start
 #/
-#/  Start the key2pdf server.  Do not respond to webhook events.  Provide a JSON
-#/  file containing configuration parameters to override defaults.
-#/
-#/     key2pdf start --param-file my-config.json
-#/
-#/  Start the key2pdf server and listen for webhook events:
-#/
-#/      key2pdf start process-webhooks
-#/
-#/  Stop the key2pdf server:
+#/#/  Stop the key2pdf server:
 #/
 #/      key2pdf stop
 #/
@@ -65,42 +53,41 @@
 #/  Convert a single Keynote file.   Output PDF will be committed to the source
 #/  repository in the same location and on the same branch as the source Keynote:
 #/
-#/      key2pdf --convert-file http://github.com/bryancross/testrepo/deck2.key --commit-after-convert
+#/      key2pdf --convert-file http://github.com/anorg/repo/blob/master/deck2.key --commit-after-convert
 #/
 #/  Convert a single Keynote file.   Converted PDF will be committed to the
 #/  source repository in the same location and on the same branch as the source
 #/  Keynote and copied to Google Drive:
 #/
-#/      key2pdf --convert-file http://github.com/bryancross/testrepo/deck2.key --commit-after-convert --copy-to-gdrive
+#/      key2pdf --convert-file http://github.com/anorg/repo/blob/master/deck2.key --commit-after-convert --copy-to-gdrive
 #/
 #/  Convert all Keynote files in a repository on the default branch.  Converted
 #/  PDFs will be copied to /output, overwriting any files with the same name:
 #/
-#/      key2pdf --convert-repo http://github.com/bryancross/testrepo
-#/
-#/  Convert all Keynote files in a repository on the default branch.  Converted
-#/  PDFs will be copied to /output, overwriting any files with the same name:
-#/
-#/      key2pdf --convert-repo http://github.com/bryancross/testrepo
+#/      key2pdf --convert-repo http://github.com/anorg/repo
 #/
 #/  Convert all Keynote files in a repository on branch foo.  Converted PDFs
 #/  will be copied to /output, overwriting any files with the same name:
 #/
-#/      key2pdf --convert-repo http://github.com/bryancross/testrepo --branch foo
+#/      key2pdf --convert-repo http://github.com/anorg/repo/tree/foo
 #/
 #/  Convert all Keynote files in a repository on branch foo.  Converted PDFs
 #/  will be committed to the source repository in the same location and on the
 #/  same branch as the source Keynote:
 #/
-#/      key2pdf --convert-repo http://github.com/bryancross/testrepo --commit-after-convert --branch foo
+#/      key2pdf --convert-repo http://github.com/anorg/repo/tree/foo --commit-after-convert
 #/
 #/  Convert all Keynote files in a repository on branch foo.  Converted PDFs
 #/  will be committed to the source repository in the same location and on the
 #/  same branch as the source Keynote and copied to Google Drive:
 #/
-#/      key2pdf --convert-repo http://github.com/bryancross/testrepo --commit-after-convert --copy-to-gdrive --branch foo
+#/      key2pdf --convert-repo http://github.com/anorg/repo/tree/foo --commit-after-convert --copy-to-gdrive
 #/
 #/
+source_dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source "$source_dir/.env"
+echo $USER_1_AUTH_TOKEN
+
 CMD_JSON=""
 FLAG_JSON=""
 CMD_OPTION=0
@@ -115,8 +102,15 @@ do
             CMD_OPTION=1
             continue
             ;;
-
-        start|stop)
+        start)
+            echo "Starting key2pdf server"
+            clear
+            cd ..
+            node key2pdf.js
+            exit 0
+            ;;
+        stop)
+            echo "Attempting to stop key2pdf server"
             CMD_JSON="{\"cmd\":\"${1}\""
             #continue
             ;;
@@ -130,7 +124,7 @@ do
             continue
             ;;
         --commit-after-convert|--copy-to-gdrive)
-            FLAG_JSON=$FLAG_JSON",\"${word:2}\""
+            CMD_JSON=$CMD_JSON",\"${word:2}\":\"true\""
             #continue
             ;;
         *)
@@ -146,17 +140,12 @@ do
       esac
 done
 
-if [[ -z $FLAG_JSON ]]; then
-    CMD_JSON=$CMD_JSON"}"
-else
-    CMD_JSON=$CMD_JSON","
-    CMD_JSON=$CMD_JSON"\"flags\":[${FLAG_JSON:1}]}"
-fi
-#CMD_JSON="{\"args\":"$CMD_JSON"}"
+
+CMD_JSON=$CMD_JSON"}"
 
 echo "CMD_JSON: "$CMD_JSON
 
-curl -X POST -d ${CMD_JSON} -H "Authorization: token ${USER_1_AUTH_TOKEN}" -H "User-Agent: key2pdf" -H 'Accept: application/vnd.github.v3.raw' http://localhost:3000/key2pdf
+curl -X POST -d ${CMD_JSON} -H "Authorization: token ${USER_1_AUTH_TOKEN}" -H "User-Agent: key2pdf" -H 'Accept: application/vnd.github.v3.raw' ${KEY2PDF_URL}
 
 exit 0
 
