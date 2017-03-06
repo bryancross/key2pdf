@@ -4,10 +4,15 @@
  */
 
 "use strict";
+var URL = require('url');
 var logger = require('./lib/logger.js');
 var catalog = require('./lib/catalog');
 var cleanup = require('./lib/cleanup.js');
 var arrayUtil = require('./lib/arrayUtil.js');
+
+//Native NodeJS url package keeps coming up undefined...
+var URL = require('url');
+//var URL = require('url-parse');
 var b64 = require('js-base64').Base64;
 var crypto = require('crypto');
 var exec = require('child_process').exec;
@@ -15,6 +20,7 @@ var GitHubClient = require("github"); //https://github.com/mikedeboer/node-githu
 var globalJobTemplate = require("./config/job-template.json");
 var fs = require('fs');
 var http = require('http');
+
 var HttpDispatcher = require('httpdispatcher');
 var dispatcher     = new HttpDispatcher();
 const PORT = 3000;
@@ -24,7 +30,7 @@ var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); /
 var jobs = [];
 var gDriveUpload = require('./gdrive');
 
-
+logger.syslog("Server startup","Starting");
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
 globalJobTemplate.pathPrefix = (globalJobTemplate.targetHost !== "github.com") ? "/api/v3" : "";
 
@@ -50,9 +56,10 @@ function dispatchRequest(request, response)
 var server = http.createServer(dispatchRequest);
 
 //Startup the server
+
 server.listen(globalJobTemplate.listenOnPort == null ? PORT : globalJobTemplate.listenOnPort, function () {
     //Callback when server is successfully listening
-    logger.log("Server listening on: http://localhost: " + PORT);
+    logger.syslog("Server listening on: http://localhost: " + PORT, "Started");
 });
 
 //handle a call to /status.  Find the job in jobs, or if it isn't in the array find the log directory, and
@@ -97,23 +104,15 @@ dispatcher.onPost('/status', function (req, res) {
 
 //Replace any global config parameter with parameters
 //passed in the http request
-function updateConfigFromParams(request, job) {
-    var urlComps = request.url.split("/");
+function updateConfigFromURL(job) {
 
     //Assuming a URL in one of 2 forms:
     // For a single file: https://<host>/<owner>/<repo>/blob/<branch>/<path>
     // For an entire repo: https://<host>/<owner>/<repo>
-
+    var urlComps = job.requestID.split("/");
     job.config.targetHost = urlComps[2];
     job.config.owner = urlComps[3];
     job.config.targetRepo = urlComps[4];
-
-
-    //Replace any global config values with values passed in in the request.
-    job.config.callback = (request.callback) ? request.callback : "";
-    job.config.GitHubPAT = (request.GitHubPAT) ? request.GitHubPAT : globalJobTemplate.GitHubPAT;
-
-
     //if there's only 5 url comps, there's no branch and we're doing the whole repo
     //so default to master
     if (urlComps.length < 6) {
@@ -134,7 +133,6 @@ function updateConfigFromParams(request, job) {
 
     //If we're going to GitHub, prepend the host with 'api', otherwise leave it be
     job.config.targetHost = (job.config.targetHost === "github.com") ? "api.github.com" : job.config.targetHost;
-
 }
 
 
@@ -148,7 +146,6 @@ if(typeof(commit.head_commit) === "undefined")
     logger.log("Non-commit event ignored");
     return;
 }
-
 
 var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, "commitSHA","id");
 
@@ -223,7 +220,31 @@ var numKeynoteFiles = 0;
         job.requestType = "pushhook";
         job.requestID = commit.head_commit.id;
 
-        if(job.config.pushCommit.head_commit.added.length > 0 || job.config.pushCommit.head_commit.modified.length > 0)
+    //parse URL arguments
+    var url = require('url');
+
+    var URLParams = url.parse(req.url).query.split("&");
+    var URLParam ;
+
+    for(var i = 0; i < URLParams.length; i++)
+    {
+        URLParam = URLParams[i].split("=");
+        if(URLParam[1] == "true")
+        {
+            if(URLParam[0] == "commit-after-convert")
+            {
+                job.config.commitAfterConvert = "true";
+            }
+            else if(URLParam[0] == "copy-to-gdrive")
+            {
+                job.config.copyToGDrive = "true";
+            }
+        }
+    }
+
+
+
+    if(job.config.pushCommit.head_commit.added.length > 0 || job.config.pushCommit.head_commit.modified.length > 0)
         {
             convertFilesForCommit(job);
         }
@@ -246,60 +267,53 @@ dispatcher.onPost('/everything', function(req,res) {
 
 dispatcher.onPost('/key2pdf', function(req,res) {
 
-    console.log("Args: ", req.body.args);
     var args = JSON.parse(req.body);
-    res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end("Got it");
-    console.log(args);
-
-});
-
-/**
- *  dispatcher.onPost(request, response) -> null
- *
- *      HTTP request parameters include:
- *          url - The URL to convert.  Expecting the same construction as if copied from a browser address bar
- *              convert all the keynotes in a repo: http(s)://<host>/<owner>/<repo>
- *              convert a single file: http(s)://<host>/<owner>/<repo>/blob/<branch>/<path to file>....
- *          callback (optional) - URL to call back with status info when the convert job completes
- *          GitHubPAT (optional) - Properly scoped PAT for the url specified.
- *
- *      Create PDF renditions of a single keynote file or all the keynote files in a repository and upload
- *      the PDFs back to the repository.  Optionally callback with status information
- **/
-dispatcher.onPost('/convert', function (req, res) {
-
+    var url = "";
     var job = initJob();
     job.logger = logger;
-    if (req.body === "")
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end("key2pdf request received.  JobID: " + job.jobID);
+    switch (args.cmd)
     {
-        res.writeHead(406, {'Content-Type': 'text/plain'});
-        res.end('No parameters found in request');
-    }
-    else {
-        try {
-            res.writeHead(200, {'Content-Type': 'text/plain'});
-            res.end(JSON.stringify({msg: "Conversion request received", jobID: job.jobID}));
-            var params = JSON.parse(req.body);
-            //update the config object with any parameters passed in.  Generally just the URL
-            updateConfigFromParams(params, job);
+        case "stop":
+            logger.syslog("Received stop signal", "Exiting",null);
+            process.exit(0);
+        case "convert-file":
+        case "convert-repo":
+            logger.syslog("Beginning conversion for " + args.option);
             job.requestType = 'url';
-            job.requestID = params.url;
-            logger.log("Path: " + job.config.filePath, job, "Processing");
-            //All is well, let's go convert!
-            //We pass the job object around to preserve state and specific configuration data for each request
-            //Another approach would be to create an object for each job, but this approach works just as well
-            convertFilesForBranch(job);
-            //convertFiles(job);
-        }
-        catch (err) {
-            res.writeHead(406, {'Content-Type': 'text/plain'});
-            res.end('Error initializing' + err.message);
-            logger.log("Error initializing: " + err.message, job, "Failed", err);
-            cleanup.cleanup(job);
-        }
+            job.requestID = args.option;
     }
+    if(args["commit-after-convert"] && args["commit-after-convert"] === "true")
+    {
+        job.config.commitAfterConvert = "true";
+    }
+    if(args["copy-to-gdrive"] && args["copy-to-gdrive"] === "true")
+    {
+        job.config.copyToGDrive = "true";
+    }
+
+    convert(job);
 });
+
+function convert(job)
+{
+
+    updateConfigFromURL(job);
+    if(!job.config.commitAfterConvert)
+    {
+        logger.syslog("Output directory created: /output/" + job.jobID);
+        fs.mkdirSync('./output/' + job.jobID);
+    }
+
+
+    logger.log("Path: " + job.config.filePath, job, "Processing");
+    //All is well, let's go convert!
+    //We pass the job object around to preserve state and specific configuration data for each request
+    //Another approach would be to create an object for each job, but this approach works just as well
+    convertFilesForBranch(job);
+    //convertFiles(job);
+}
 
 //setup the job from the template in ./config/job-template.json
 function initJob()
@@ -543,13 +557,33 @@ function convertKeynote(keynote, path, job) {
         .pipe(fs.createWriteStream(path + '.pdf'))
         .on('finish', () => {
           logger.log("Conversion of " + keynote.path + " complete", job);
-          logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
+          if(job.config.copyToGDrive === "true")
+          {
+              logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
+              gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" })
+          }
+          else
+          {
+              logger.syslog("Skipping upload to GDrive","Running");
+          }
 
-          gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" })
+        if(!job.config.commitAfterConvert)
+        {
+            logger.syslog("Skipping commit of new files", "Running");
+            updateKeynoteFileList(null, keynote, job);
+        }
+        else
+        {
+            createNewBlobFromFile(path, keynote, job);
+        }
 
-          // I have a timeout here to make sure the API calls from Google respond.
+
+
+
+    // I have a timeout here to make sure the API calls from Google respond.
           // Will remove when ready to 🚢
-          setTimeout(function () { createNewBlobFromFile(path, keynote, job) }, 10000);
+          //setTimeout(function () { createNewBlobFromFile(path, keynote, job) }, 10000);
+
         })
         .on('error', function(err) {
           logger.log("Conversion of " + keynote.path + " failed", job, "Conversion failure for: " +path);
@@ -606,11 +640,13 @@ function createNewBlobFromFile(path, keynote, job) {
                 .then(function (err, res) {
                     //Pop the completed keynote from the array of keynotes, and add the completed PDF to the list of
                     //PDFs
+                    logger.log("New blob created: " + keynote.sha + " for keynote " + keynote.path, job);
                     updateKeynoteFileList(err, keynote, job)
                 })
                 .catch(function (err, res) {
                     logger.log("Error creating BLOB for " + path + ": " + err.message, job);
                 });
+
         }
     });
 }
@@ -620,15 +656,28 @@ function createNewBlobFromFile(path, keynote, job) {
 // keynoteFiles array.  When the array is empty, proceed with building the new tree
 
 function updateKeynoteFileList(blob, keynote, job) {
-    logger.log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
 
+
+    var blobSHA = "";
+    var blobURL = ""
     //push the new PDF blob onto our array of PDFs.  This will become the 'tree' element of our new Git tree later
+    if(!blob)
+    {
+        blobSHA = "not committed";
+        blobURL = "not committed";
+    }
+    else
+    {
+        blobSHA = blob.sha;
+        //blobURL = "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
+        blobURL.url;
+    }
     job.PDFs.push({
         path: keynote.path + ".pdf",
         type: "blob",
         mode: "100644",
-        sha: blob.sha,
-        url: "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
+        sha: blobSHA,
+        url: blobURL
     });
 
     //Remove the keynote from the array of keynotes to process.  When the array is empty we'll move on to creating the new tree, commit and updating refs.
@@ -637,16 +686,21 @@ function updateKeynoteFileList(blob, keynote, job) {
     {
         job.keynoteFiles.splice(keyIndex, 1);
     }
-    else
-    {
-        console.logger.log("foo");
-    }
+
 
     //Have we retrieved and converted all the keynotes? If so then it's time to create our new tree
     if (job.keynoteFiles.length === 0) {
-        logger.log("All keynotes converted and new blobs created", job);
-        createNewTree(job);
-    }
+        if(job.config.commitAfterConvert === "true")
+            {
+                logger.log("All keynotes converted and new blobs created", job);
+                createNewTree(job);
+            }
+        else
+        {
+            logger.log("All keynotes converted", job);
+            cleanup.cleanup(job);
+        }
+        }
 }
 
 function createNewTree(job) {
