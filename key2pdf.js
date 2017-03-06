@@ -4,10 +4,15 @@
  */
 
 "use strict";
+var URL = require('url');
 var logger = require('./lib/logger.js');
 var catalog = require('./lib/catalog');
 var cleanup = require('./lib/cleanup.js');
 var arrayUtil = require('./lib/arrayUtil.js');
+
+//Native NodeJS url package keeps coming up undefined...
+var URL = require('url');
+//var URL = require('url-parse');
 var b64 = require('js-base64').Base64;
 var crypto = require('crypto');
 var exec = require('child_process').exec;
@@ -15,6 +20,7 @@ var GitHubClient = require("github"); //https://github.com/mikedeboer/node-githu
 var globalJobTemplate = require("./config/job-template.json");
 var fs = require('fs');
 var http = require('http');
+
 var HttpDispatcher = require('httpdispatcher');
 var dispatcher     = new HttpDispatcher();
 const PORT = 3000;
@@ -141,7 +147,6 @@ if(typeof(commit.head_commit) === "undefined")
     return;
 }
 
-
 var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, "commitSHA","id");
 
     if(commitIndex || commitIndex === 0)
@@ -215,7 +220,31 @@ var numKeynoteFiles = 0;
         job.requestType = "pushhook";
         job.requestID = commit.head_commit.id;
 
-        if(job.config.pushCommit.head_commit.added.length > 0 || job.config.pushCommit.head_commit.modified.length > 0)
+    //parse URL arguments
+    var url = require('url');
+
+    var URLParams = url.parse(req.url).query.split("&");
+    var URLParam ;
+
+    for(var i = 0; i < URLParams.length; i++)
+    {
+        URLParam = URLParams[i].split("=");
+        if(URLParam[1] == "true")
+        {
+            if(URLParam[0] == "commit-after-convert")
+            {
+                job.config.commitAfterConvert = "true";
+            }
+            else if(URLParam[0] == "copy-to-gdrive")
+            {
+                job.config.copyToGDrive = "true";
+            }
+        }
+    }
+
+
+
+    if(job.config.pushCommit.head_commit.added.length > 0 || job.config.pushCommit.head_commit.modified.length > 0)
         {
             convertFilesForCommit(job);
         }
@@ -261,7 +290,7 @@ dispatcher.onPost('/key2pdf', function(req,res) {
     }
     if(args["copy-to-gdrive"] && args["copy-to-gdrive"] === "true")
     {
-        job.config.copyToGdrive = "true";
+        job.config.copyToGDrive = "true";
     }
 
     convert(job);
@@ -611,12 +640,13 @@ function createNewBlobFromFile(path, keynote, job) {
                 .then(function (err, res) {
                     //Pop the completed keynote from the array of keynotes, and add the completed PDF to the list of
                     //PDFs
+                    logger.log("New blob created: " + keynote.sha + " for keynote " + keynote.path, job);
                     updateKeynoteFileList(err, keynote, job)
                 })
                 .catch(function (err, res) {
                     logger.log("Error creating BLOB for " + path + ": " + err.message, job);
                 });
-            logger.log("New blob created: " + blob.sha + " for keynote " + keynote.path, job);
+
         }
     });
 }
@@ -639,7 +669,8 @@ function updateKeynoteFileList(blob, keynote, job) {
     else
     {
         blobSHA = blob.sha;
-        blobURL = "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
+        //blobURL = "https://" + job.config.targetHost + "/repos/" + job.config.owner + "/" + job.config.targetRepo + "/git/blobs/" + blob.sha
+        blobURL.url;
     }
     job.PDFs.push({
         path: keynote.path + ".pdf",
