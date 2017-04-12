@@ -28,7 +28,7 @@ var parse = require('date-fns/parse');  //https://github.com/date-fns/date-fns
 var format = require('date-fns/format');  //https://github.com/date-fns/date-fns
 var differenceInMilliseconds = require('date-fns/difference_in_milliseconds'); //https://github.com/date-fns/date-fns
 var jobs = [];
-var gDriveUpload = require('./gdrive');
+var gDriveUpload = require('./lib/gdrive');
 
 logger.syslog("Server startup","Starting");
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
@@ -560,7 +560,7 @@ function convertKeynote(keynote, path, job) {
           if(job.config.copyToGDrive === "true")
           {
               logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
-              gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" })
+              gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" }, job)
           }
           else
           {
