@@ -1,9 +1,9 @@
 var request = require('request');
 var tcolorBlue = '\x1b[36m';
 var tcolorReset = '\x1b[0m';
+var config = require('../../config/google-config.json')
 
 function shortenUrl(longUrl, cb) {
-  var config = require('../config/google-config.json');
   request.post('https://www.googleapis.com/urlshortener/v1/url?key=' + config.UrlApiKey,
   { json: { "longUrl": longUrl } },
   function (err, response, body) {

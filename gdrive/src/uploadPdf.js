@@ -6,9 +6,9 @@ var shortUrl = '';
 var tcolorBlue = '\x1b[36m';
 var tcolorReset = '\x1b[0m';
 var shortenUrl = require('./shortenUrl');
+var config = require('../../config/google-config.json');
 
 function uploadPDF(auth, file) {
-  var config = require('../config/google-config.json');
   var service = google.drive({ version: 'v3', auth: auth });
   var spinner = new Spinner('Uploading PDF.. %s');
   // spinner.setSpinnerString('|/-\\');

@@ -11,20 +11,40 @@ var SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'drive-nodejs-uploadPDF.json';
-
-function gDriveUpload(file) {
-    // Load client secrets from a local file.
-    fs.readFile('./gdrive/config/client_secret.json', function processClientSecrets(err, content) {
+// Checking TOKEN file to ensure it's valid
+fs.readFile(TOKEN_PATH, function (err, content) {
+  if (err) {
+    fs.readFile('config/client_secret.json', function processClientSecrets(err, content) {
       if (err) {
         console.log('Error loading client secret file: ' + err);
         return;
       }
+
+      authorize(JSON.parse(content), function() { logger.log('Token created');});
+
+    });
+
+    logger.log('TOKEN DOES NOT EXIST AT: ' + TOKEN_PATH)
+
+
+  }
+
+})
+
+function gDriveUpload(file) {
+  // Load client secrets from a local file.
+      fs.readFile('config/client_secret.json', function processClientSecrets(err, content) {
+        if (err) {
+          console.log('Error loading client secret file: ' + err);
+          return;
+        }
       // Authorize a client with the loaded credentials, then call the
       // Drive API.
       logger.log('FILENAME: ' + file.name);
       logger.log('PATH: ' + file.path);
       authorize(JSON.parse(content), function(auth) { uploadPDF(auth, file) });
-  });
+    });
+
 }
 
 /**
