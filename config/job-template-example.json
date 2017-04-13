@@ -20,6 +20,8 @@
 ,"debug":false
 ,"jobsLimit":1000
 ,"maxConvertRetries":3
+,"UrlApiKey": "<Google API Key>"
+,"UploadFolder": "<Google Drive Folder ID>"
 }
 ,"convertRetries":[]
 ,"files":[]
