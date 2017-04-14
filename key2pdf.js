@@ -283,6 +283,10 @@ dispatcher.onPost('/key2pdf', function(req,res) {
             logger.syslog("Beginning conversion for " + args.option);
             job.requestType = 'url';
             job.requestID = args.option;
+            break;
+        case "register-pat":
+            logger.syslog("Registering PAT");
+            registerPAT(args.label, args.pat);
     }
     if(args["commit-after-convert"] && args["commit-after-convert"] === "true")
     {

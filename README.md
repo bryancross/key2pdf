@@ -142,7 +142,7 @@ If `key2pdf` launches successfully you'll see the following on the command line:
 `2017-01-14T07:58:59.197-06:00:    Server listening on: http://localhost: 3000`
 
 #### Endpoints
-##### `POST http://<host>:<port>/convert`
+##### `POST http://<host>:<port>/key2pdf`
 ##### Parameters
 |Name|Type|Description|
 |----|----|-----------|

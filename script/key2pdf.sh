@@ -3,6 +3,7 @@
 #/Usage:  key2pdf.sh cmd <url> <flags>
 #/        key2pdf start
 #/        key2pdf stop
+#/        key2pdf register-pat <label> <pat> (NOT IMPLEMENTED)
 #/        key2pdf convert-file <url> [--commit-after-convert] [--copy-to-gdrive]
 #/        key2pdf convert-repo <url> [--commit-after-convert] [--copy-to-gdrive]
 #/
@@ -20,11 +21,19 @@
 #/
 #/  convert-repo            Convert all files in a repository
 #/
+#/  register-pat            Store a PAT on the key2pdf server with a human
+#/                          readable label (NOT IMPLEMENTED)
+#/
 #/
 #/ OPTIONS:
 #/
 #/  url                     URL to a single Keynote file to be converted, or
 #/                          to a branch in a repository to be converted.
+#/
+#/  label                   Human readable label to identify a PAT
+#/
+#/  pat                     Properly scoped GitHub Personal Access Token (PAT)
+#/
 #/ FLAGS:
 #/
 #/  commit-after-convert    If present, converted PDF files will be committed to
@@ -44,6 +53,10 @@
 #/  Stop the key2pdf server:
 #/
 #/      key2pdf stop
+#/
+#/  Register a PAT with a human readable label.
+#/
+#/      key2pdf register-pat my-pat 38763662.....
 #/
 #/  Convert a single Keynote file.   Output PDF will be copied to /output,
 #/  overwriting any files with the same name:
@@ -113,6 +126,13 @@ do
             echo "Attempting to stop key2pdf server"
             CMD_JSON="{\"cmd\":\"${1}\""
             #continue
+            ;;
+         register-pat)
+            echo "Registering PAT"
+            CMD_JSON="{\"cmd\":\"${1}\""
+            shift
+            CMD_JSON=$CMD_JSON",\"label\":\"${1}\",\"pat\":\"${2}\""
+            break
             ;;
         --branch)
             shift
