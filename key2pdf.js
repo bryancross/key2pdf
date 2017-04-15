@@ -825,7 +825,8 @@ function verifyConfig()
     }
 }
 
-function compareJSON(lhs, rhs) {
+function compareJSON(lhs, rhs)
+{
     var diff = require('deep-diff');
     var diffs = diff(lhs,rhs);
     if (diffs && diffs.length > 0) {
