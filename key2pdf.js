@@ -31,6 +31,8 @@ var jobs = [];
 var gDriveUpload = require('./lib/gdrive');
 
 logger.syslog("Server startup","Starting");
+verifyConfig();
+
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
 globalJobTemplate.pathPrefix = (globalJobTemplate.targetHost !== "github.com") ? "/api/v3" : "";
 
@@ -138,38 +140,51 @@ function updateConfigFromURL(job) {
 
 dispatcher.onPost('/pushhook', function (req, res) {
 
+//Got the request, thanks, we'll get back to you.  Or actually you'll get back to us LOL
 
-var commit = JSON.parse(req.body);
+res.writeHead(202, {'Content-Type': 'text/plain'});
+res.end(JSON.stringify({msg: "Pushhook event received"}));
+logger.syslog("Pushhook event received",null,"pushhook");
+    try
+    {
+        var commit = JSON.parse(req.body);
+    }
+    catch(e)
+    {
+        logger.syslog("Error parsing request body","pushhook",e);
+        return;
+    }
+
 //Test whether this is actually a commit. If not, reject it.
-if(typeof(commit.head_commit) === "undefined")
+
+if(!commit.head_commit)
 {
-    logger.log("Non-commit event ignored");
+    logger.syslog("Non-commit event ignored","pushhook");
     return;
 }
 
+
+//Did we create this commit?
 var commitIndex = arrayUtil.findValueBetweenArrays(jobs, commit.head_commit.id, "commitSHA","id");
 
-    if(commitIndex || commitIndex === 0)
+//If so, ignore it
+if(commitIndex || commitIndex === 0)
 {
-    logger.log("Ignoring push event: " + commit.commits[commitIndex.array2index].id);
+    logger.syslog("Ignoring push event created by key2pdf: " + commit.commits[commitIndex.array2index].id);
     commit.commits.splice(commitIndex.array2index,1);
 }
 
 //Are there any commits left?
-    if (commit.commits.length === 0)
+    if (!commit.commits)
     {
-        res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.end(JSON.stringify({msg: "Pushhook event ignored: ", commitID: commit.head_commit.id}));
-        logger.log("Ignoring pushhook event");
+        logger.syslog("Ignoring pushhook event");
         return;
     }
     //If there are no added or modified files, exit
     //We still need to deal with removed files...
     else if (commit.head_commit.added.length === 0 && commit.head_commit.modified.length === 0)
     {
-        res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.end(JSON.stringify({msg: "Pushhook event received, no added or modified files: ", commitID: commit.head_commit.id}));
-        logger.log("Ignoring pushhook event, no added or modified files.");
+        logger.syslog("Ignoring pushhook event, no added or modified files.");
         return;
     }
 
@@ -197,19 +212,12 @@ var numKeynoteFiles = 0;
 
     if(!numKeynoteFiles)
     {
-        res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.end(JSON.stringify({msg: "Pushhook event received, no keynotes: ", commitID: commit.head_commit.id}));
-        logger.log("Ignoring pushhook event, no keynotes." + commit.head_commit.id);
+        logger.syslog("Ignoring pushhook event, no keynotes." + commit.head_commit.id);
         return;
     }
 
-        res.writeHead(200, {'Content-Type': 'text/plain'});
-        res.end(JSON.stringify({msg: "Pushhook event received: ", commitID: commit.head_commit.id}));
-        logger.log("Processing pushhook for commit: " + commit.head_commit.id);
-
-
     //If there are, start the process
-
+        logger.syslog("Processing pushhook for commit: " + commit.head_commit.id)
         var job = initJob();
         job.config.targetBranch = commit.ref.split('/')[2];
         job.config.targetHost = commit.repository.url.split('/')[2];
@@ -222,7 +230,6 @@ var numKeynoteFiles = 0;
 
     //parse URL arguments
     var url = require('url');
-
     var URLParams = url.parse(req.url).query.split("&");
     var URLParam ;
 
@@ -242,51 +249,52 @@ var numKeynoteFiles = 0;
         }
     }
 
-
-
     if(job.config.pushCommit.head_commit.added.length > 0 || job.config.pushCommit.head_commit.modified.length > 0)
         {
             convertFilesForCommit(job);
         }
-        //Deal with these later
-        /*
-        for(var rem = 0; rem < job.config.commit.head_commit.removed.length; rem++)
-        {
-
-        }
-        */
-
 });
-
-dispatcher.onPost('/everything', function(req,res) {
-    var body = req.body;
-    console.log("Processing everything request");
-    fs.appendFile('./log/everything.json', JSON.stringify(body));
-    });
-
 
 dispatcher.onPost('/key2pdf', function(req,res) {
 
-    var args = JSON.parse(req.body);
+    try
+    {
+        var args = JSON.parse(req.body);
+    }
+    catch(e)
+    {
+        res.writeHead(400, {'Content-Type': 'text/plain'});
+        res.end("Error processing parameters JSON");
+        return;
+    }
+
     var url = "";
     var job = initJob();
     job.logger = logger;
-    res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end("key2pdf request received.  JobID: " + job.jobID);
+
     switch (args.cmd)
     {
         case "stop":
             logger.syslog("Received stop signal", "Exiting",null);
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end({"msg":"Stopping server"});
             process.exit(0);
         case "convert-file":
         case "convert-repo":
-            logger.syslog("Beginning conversion for " + args.option);
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end({"msg":"Processing request"});
+            logger.log("Beginning conversion for " + args.option,"key2pdf");
             job.requestType = 'url';
             job.requestID = args.option;
             break;
         case "register-pat":
+            res.writeHead(410, {'Content-Type': 'application/json'});
+            res.end({"msg":"Not implemented"});
+            return;
+            /*
             logger.syslog("Registering PAT");
             registerPAT(args.label, args.pat);
+            */
     }
     if(args["commit-after-convert"] && args["commit-after-convert"] === "true")
     {
@@ -798,4 +806,47 @@ function createNewTree(job) {
         })
     });
 
+}
+
+function verifyConfig()
+{
+    var configTemplate = require('./config/job-template-example.json');
+    var config = require('./config/job-template.json');
+    var diffs = compareJSON(config, configTemplate);
+    if(diffs)
+    {
+        logger.log("Configuration does not match specification",null,"Invalid Config");
+        logger.log("Differences: " + JSON.stringify(diffs));
+        process.exit(1);
+    }
+}
+
+function compareJSON(lhs, rhs)
+{
+    var diff = require('deep-diff');
+    var diffs = diff(lhs,rhs);
+    if (diffs && diffs.length > 0) {
+        var diff = {};
+        var output = {};
+        output.diffs = [];
+        var path = "";
+
+        for (var i = 0; i < diffs.length; i++) {
+            diff = diffs[i];
+            if (diff.kind === 'N' || diff.kind === 'D') {
+                if (diff.path) {
+                    path = "";
+                    for (var y = 0; y < diff.path.length; y++) {
+                        path = path + diff.path[y] + "/";
+                    }
+                }
+                output.diffs.push({
+                    "type": (diff.kind === 'D' ? "Extra element" : "Missing element"),
+                    "path": path
+                });
+            }
+        }
+        return output.diffs.length > 0 ? output : null;
+    }
+    return null;
 }

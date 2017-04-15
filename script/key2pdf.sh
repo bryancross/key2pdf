@@ -97,6 +97,9 @@
 #/      key2pdf --convert-repo http://github.com/anorg/repo/tree/foo --commit-after-convert --copy-to-gdrive
 #/
 #/
+
+#/ Need to validate number of args at this point
+
 source_dir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source "$source_dir/.env"
 echo $USER_1_AUTH_TOKEN
