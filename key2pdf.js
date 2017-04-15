@@ -31,6 +31,8 @@ var jobs = [];
 var gDriveUpload = require('./lib/gdrive');
 
 logger.syslog("Server startup","Starting");
+verifyConfig();
+
 //GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
 globalJobTemplate.pathPrefix = (globalJobTemplate.targetHost !== "github.com") ? "/api/v3" : "";
 
@@ -267,7 +269,17 @@ dispatcher.onPost('/everything', function(req,res) {
 
 dispatcher.onPost('/key2pdf', function(req,res) {
 
-    var args = JSON.parse(req.body);
+    try
+    {
+        var args = JSON.parse(req.body);
+    }
+    catch(e)
+    {
+        res.writeHead(400, {'Content-Type': 'text/plain'});
+        res.end("Error processing parameters JSON");
+        return;
+    }
+
     var url = "";
     var job = initJob();
     job.logger = logger;
@@ -798,4 +810,46 @@ function createNewTree(job) {
         })
     });
 
+}
+
+function verifyConfig()
+{
+    var configTemplate = require('./config/job-template-example.json');
+    var config = require('./config/job-template.json');
+    var diffs = compareJSON(config, configTemplate);
+    if(diffs)
+    {
+        logger.log("Configuration does not match specification",null,"Invalid Config");
+        logger.log("Differences: " + JSON.stringify(diffs));
+        process.exit(1);
+    }
+}
+
+function compareJSON(lhs, rhs) {
+    var diff = require('deep-diff');
+    var diffs = diff(lhs,rhs);
+    if (diffs && diffs.length > 0) {
+        var diff = {};
+        var output = {};
+        output.diffs = [];
+        var path = "";
+
+        for (var i = 0; i < diffs.length; i++) {
+            diff = diffs[i];
+            if (diff.kind === 'N' || diff.kind === 'D') {
+                if (diff.path) {
+                    path = "";
+                    for (var y = 0; y < diff.path.length; y++) {
+                        path = path + diff.path[y] + "/";
+                    }
+                }
+                output.diffs.push({
+                    "type": (diff.kind === 'D' ? "Extra element" : "Missing element"),
+                    "path": path
+                });
+            }
+        }
+        return output.diffs.length > 0 ? output : null;
+    }
+    return null;
 }
