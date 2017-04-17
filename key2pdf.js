@@ -9,6 +9,7 @@ var logger = require('./lib/logger.js');
 var catalog = require('./lib/catalog');
 var cleanup = require('./lib/cleanup.js');
 var arrayUtil = require('./lib/arrayUtil.js');
+var Job = require('./lib/job.js');
 
 //Native NodeJS url package keeps coming up undefined...
 var URL = require('url');
@@ -32,12 +33,6 @@ var gDriveUpload = require('./lib/gdrive');
 
 logger.syslog("Server startup","Starting");
 verifyConfig();
-
-//GitHub Enterprise uses /api/v3 as a prefix to REST calls, while GitHub.com does not.
-globalJobTemplate.pathPrefix = (globalJobTemplate.targetHost !== "github.com") ? "/api/v3" : "";
-
-//If we're going to GitHub, prepend the host with 'api', otherwise leave it be
-globalJobTemplate.targetHost = (globalJobTemplate.targetHost === "github.com") ? "api.github.com" : globalJobTemplate.targetHost;
 
 //Dispatch request, send response
 function dispatchRequest(request, response)
@@ -117,7 +112,7 @@ function updateConfigFromURL(job) {
     job.config.targetRepo = urlComps[4];
     //if there's only 5 url comps, there's no branch and we're doing the whole repo
     //so default to master
-    if (urlComps.length < 6) {
+    if (urlComps.length <= 6) {
         job.config.targetBranch = 'master'
     }
     else {
@@ -277,19 +272,19 @@ dispatcher.onPost('/key2pdf', function(req,res) {
         case "stop":
             logger.syslog("Received stop signal", "Exiting",null);
             res.writeHead(200, {'Content-Type': 'application/json'});
-            res.end({"msg":"Stopping server"});
+            res.end(JSON.stringify({"msg":"Stopping server"}));
             process.exit(0);
         case "convert-file":
         case "convert-repo":
             res.writeHead(200, {'Content-Type': 'application/json'});
-            res.end({"msg":"Processing request"});
-            logger.log("Beginning conversion for " + args.option,"key2pdf");
+            res.end(JSON.stringify({"msg":"Processing request"}));
+            logger.log("Beginning conversion for " + args.option,job,"key2pdf");
             job.requestType = 'url';
             job.requestID = args.option;
             break;
         case "register-pat":
             res.writeHead(410, {'Content-Type': 'application/json'});
-            res.end({"msg":"Not implemented"});
+            res.end(JSON.stringify({"msg":"Not implemented"}));
             return;
             /*
             logger.syslog("Registering PAT");
@@ -330,19 +325,28 @@ function convert(job)
 //setup the job from the template in ./config/job-template.json
 function initJob()
 {
-    var job = JSON.parse(JSON.stringify(globalJobTemplate));
+    //var job = JSON.parse(JSON.stringify(globalJobTemplate));
+
+    var job = new Job(globalJobTemplate);
+
+    job.config.kbOwner = job.config.knowledgeBaseRepo.split('/')[3];
+    job.config.kbRepo = job.config.knowledgeBaseRepo.split('/')[4];
+
 
 //Attach the new client to the job objects
-    job.startTime = format(new Date());
+    //job.startTime = format(new Date());
     //Assign a (hopefully) unique ID
-    job.jobID = crypto.randomBytes(20).toString('hex');
+    //job.jobID = crypto.randomBytes(20).toString('hex');
     job.keynoteFiles = [];
 
     //  Create a github client using the node-github API https://github.com/mikedeboer/node-github
+    /*
     var github = new GitHubClient({
+
         debug: job.config.debug,
         pathPrefix: job.config.pathPrefix
     });
+
 
     //Create an auth object using configured values.  Will be used to authenticate the GitHub client
     var auth = {
@@ -351,31 +355,15 @@ function initJob()
         , username: job.config.user
     };
 
+
     //authenticate using configured credentials
     github.authenticate(auth);
 
     //attach the client to the job object
     job.github = github;
+     */
     jobs.push(job);
     return job;
-}
-
-function createTempDir(job)
-{
-    var mkdirp = require('mkdirp'); //https://www.npmjs.com/package/mkdirp
-    //Push the temp dir path onto the job object for use later
-    job.tempDir = './job/' + job.jobID;
-    //Use mkdirp to safely create the temp directory
-    mkdirp(job.tempDir, function (err) {
-        if (err != null) {
-            logger.log("Fatal error creating temp directory: " + err.message, job, "Failed", err);
-            cleanup.cleanup(job);
-        }
-
-    });
-
-    logger.log("Temp directory: " + job.tempDir, job);
-
 }
 
 function convertFilesForCommit(job)
@@ -386,9 +374,6 @@ function convertFilesForCommit(job)
     //Get the tree for the commit
 
     var newTree = [];
-
-    //create temp dir
-    createTempDir(job);
 
     job.github.gitdata.getTree({
         owner: job.config.owner,
@@ -413,7 +398,7 @@ function convertFilesForBranch(job) {
 
     var tree = [];
     //create a temp directory.
-    createTempDir(job);
+    //createworkingDir(job);
     //get the HEAD commit for the target branch
     //try {
     job.github.repos.getBranch({
@@ -525,7 +510,7 @@ function getFiles(tree, job) {
 }
 
 function downloadKeynote(keynote, job) {
-    var path = job.tempDir + "/" + keynote.path.substr(keynote.path.lastIndexOf("/") + 1);
+    var path = job.config.workingDir + "/" + keynote.path.substr(keynote.path.lastIndexOf("/") + 1);
 
     //Remove illegal characters from path
     path = path.replace(/ /g,"_");
@@ -572,7 +557,7 @@ function convertKeynote(keynote, path, job) {
           if(job.config.copyToGDrive === "true")
           {
               logger.log('Uploading PDF to Google Drive: ' + path + ".pdf")
-              gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" }, job)
+              gDriveUpload({ name: keynote.path + ".pdf", path: path + ".pdf" }, job, keynote);
           }
           else
           {
